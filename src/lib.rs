@@ -21,7 +21,7 @@ impl TwitchApi {
         }
     }
 
-    pub fn users(&mut self, id: Vec<&str>, login: Vec<&str>) -> Box<Future<Item=serde_json::Value, Error=()> + Send> {
+    pub fn users(&mut self, id: Vec<&str>, login: Vec<&str>) -> Box<Future<Item=serde_json::Value, Error=reqwest::Error> + Send> {
         let mut headers = header::HeaderMap::new();
         let auth_key = &self.client_id;
         let header_value = header::HeaderValue::from_str(&auth_key).unwrap();
@@ -33,30 +33,18 @@ impl TwitchApi {
         }
 
         if id.len() > 0 {
-            url.push_str("id=");
             for index in 0..id.len() {
-                if index != id.len() - 1 {
-                    url.push_str(id[index]);
-                    url.push(',');
-                } else {
-                    url.push_str(id[index]);
-                }
+                url.push_str("id=");
+                url.push_str(id[index]);
+                url.push('&');
             }
         }
 
-        if id.len() > 0 && login.len() > 0 {
-            url.push_str("&");
-        }
-
         if login.len() > 0 {
-            url.push_str("login=");
             for index in 0..login.len() {
-                if index != login.len() - 1 {
-                    url.push_str(login[index]);
-                    url.push(',');
-                } else {
-                    url.push_str(login[index]);
-                }
+                url.push_str("login=");
+                url.push_str(login[index]);
+                url.push('&');
             }
         }
 
@@ -72,36 +60,8 @@ impl TwitchApi {
                             res.json::<serde_json::Value>()
                         })
                         .and_then(|json| {
-                            println!("{:?}", json);
                             json
-                        })
-                        .map_err(|_| ());
-
-
-        /*
-        let f = response
-            .map_err(|_| ())
-            .and_then(|res| {
-                let decoder = res.into_body();
-                decoder.collect()
-                .map(|chunks| {
-                    let mut data: Vec<u8> = Vec::new();
-                    for chunk in chunks {
-                        for byte in chunk {
-                            data.push(byte);
-                        }
-                    }
-                    data
-                })
-                .map(|data: Vec<u8>| {
-                    let s = String::from_utf8_lossy(&data[..]);
-                    let j = serde_json::from_str::<serde_json::Value>(&s);
-                    println!("{:?}", j);
-                    ()
-                })
-                .map_err(|_| ())
-            });
-            */
+                        });
 
         return Box::new(f);
     }

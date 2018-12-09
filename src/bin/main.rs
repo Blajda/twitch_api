@@ -11,7 +11,7 @@ use futures::future::Future;
 fn main() {
     dotenv::dotenv().unwrap();
     let mut twitch_api = TwitchApi::new(env::var("TWITCH_API").unwrap());
-    let mut users = twitch_api.users(vec![], vec!["shroud"])
+    let mut users = twitch_api.users(vec![], vec!["shroud", "ninja"])
         .and_then(|json| {
             println!("{:?}", json);
             Ok(json)

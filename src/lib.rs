@@ -21,7 +21,7 @@ impl TwitchApi {
         }
     }
 
-    pub fn users(&mut self, id: Vec<&str>, login: Vec<&str>) -> Box<Future<Item=(), Error=()> + Send> {
+    pub fn users(&mut self, id: Vec<&str>, login: Vec<&str>) -> Box<Future<Item=serde_json::Value, Error=()> + Send> {
         let mut headers = header::HeaderMap::new();
         let auth_key = &self.client_id;
         let header_value = header::HeaderValue::from_str(&auth_key).unwrap();
@@ -65,10 +65,20 @@ impl TwitchApi {
                         .build().unwrap();
         
 
-        let mut response = client
+        let mut f = client
                         .get(&url)
-                        .send();
+                        .send()
+                        .map(|mut res| {
+                            res.json::<serde_json::Value>()
+                        })
+                        .and_then(|json| {
+                            println!("{:?}", json);
+                            json
+                        })
+                        .map_err(|_| ());
 
+
+        /*
         let f = response
             .map_err(|_| ())
             .and_then(|res| {
@@ -91,6 +101,7 @@ impl TwitchApi {
                 })
                 .map_err(|_| ())
             });
+            */
 
         return Box::new(f);
     }

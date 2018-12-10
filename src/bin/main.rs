@@ -1,23 +1,43 @@
-extern crate twitch_api;
-extern crate tokio;
 extern crate dotenv;
 extern crate futures;
 extern crate serde;
+extern crate tokio;
+extern crate twitch_api;
 
-use twitch_api::TwitchApi;
-use std::env;
 use futures::future::Future;
+use std::env;
+use twitch_api::Client;
 
 fn main() {
     dotenv::dotenv().unwrap();
-    let mut twitch_api = TwitchApi::new(env::var("TWITCH_API").unwrap());
-    let mut users = twitch_api.users(vec![], vec!["shroud", "ninja"])
+    let twitch_api = Client::new(&env::var("TWITCH_API").unwrap());
+
+    let users = twitch_api
+        .users(vec![], vec!["shroud", "ninja"])
+        .and_then(|json| {
+            println!("{:?}", json);
+            println!("len {}", json.data.len());
+            Ok(json)
+        })
+        .map(|_| ())
+        .map_err(|err| {
+            println!("{:?}", err); 
+            ()
+        });
+
+    let videos = twitch_api
+        .videos(None, Some("37402112"), None)
         .and_then(|json| {
             println!("{:?}", json);
             Ok(json)
         })
         .map(|_| ())
-        .map_err(|_| ());
+        .map_err(|err| {
+            println!("{:?}", err); 
+            ()
+        });
+        
 
-    tokio::run(users);
+
+    tokio::run(users.join(videos).map(|_| ()));
 }

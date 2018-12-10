@@ -1,32 +1,56 @@
-extern crate reqwest;
 extern crate futures;
+extern crate reqwest;
 extern crate serde;
 
-use reqwest::r#async::{Client, Request, Chunk, Response, Decoder};
-use reqwest::header;
+#[macro_use]
+extern crate serde_derive;
+
+pub mod models;
+
 use futures::future::Future;
-use std::iter::Iterator;
-use futures::Stream;
+use reqwest::header;
+use reqwest::r#async::{Chunk, Decoder, Request, Response};
+use reqwest::r#async::Client as ReqwestClient;
+
+use self::models::{DataContainer, PaginationContainer, User, Video};
 
 const API_DOMAIN: &'static str = "api.twitch.tv";
 
-pub struct TwitchApi {
-    client_id: String,
+/* When Client owns a ReqwestClient, any futures spawned do not immediately
+ * terminate but 'hang'. When creating a new client for each request this problem
+ * does not occur. This would need to be resolved so we can benefit from keep alive
+ * connections.
+ *
+ */
+
+pub struct Client {
+    id: String,
 }
 
-impl TwitchApi {
-    pub fn new(client_id: String) -> TwitchApi {
-        TwitchApi {
-            client_id
+impl Client {
+    pub fn new(client_id: &str) -> Client {
+        Client { 
+            id: client_id.to_owned(),
         }
     }
 
-    pub fn users(&mut self, id: Vec<&str>, login: Vec<&str>) -> Box<Future<Item=serde_json::Value, Error=reqwest::Error> + Send> {
+    fn create_client(&self) -> ReqwestClient {
         let mut headers = header::HeaderMap::new();
-        let auth_key = &self.client_id;
-        let header_value = header::HeaderValue::from_str(&auth_key).unwrap();
+        let auth_key = &self.id;
+        let header_value = header::HeaderValue::from_str(auth_key).unwrap();
         headers.insert("Client-ID", header_value);
-        let mut url = String::from("https://") + &String::from(API_DOMAIN) + &String::from("/helix/users");
+
+        let client = ReqwestClient::builder().default_headers(headers).build().unwrap();
+        client
+    }
+
+    pub fn users(
+        &self,
+        id: Vec<&str>,
+        login: Vec<&str>,
+    ) -> impl Future<Item = DataContainer<User>, Error = reqwest::Error> {
+        let mut url =
+            String::from("https://") + &String::from(API_DOMAIN) + &String::from("/helix/users");
 
         if id.len() > 0 || login.len() > 0 {
             url.push_str("?");
@@ -48,21 +72,41 @@ impl TwitchApi {
             }
         }
 
-        let client = Client::builder()
-                        .default_headers(headers)
-                        .build().unwrap();
-        
 
-        let mut f = client
-                        .get(&url)
-                        .send()
-                        .map(|mut res| {
-                            res.json::<serde_json::Value>()
-                        })
-                        .and_then(|json| {
-                            json
-                        });
+        let f = self.create_client()
+            .get(&url)
+            .send()
+            .map(|mut res| res.json::<DataContainer<User>>())
+            .and_then(|json| json);
 
-        return Box::new(f);
+        return f;
+    }
+
+    pub fn videos(
+        &self,
+        video_id:   Option<Vec<&str>>,
+        user_id:    Option<&str>,
+        game_id:    Option<&str>,
+    ) -> impl Future<Item = PaginationContainer<Video>, Error = reqwest::Error> {
+        let mut url =
+            String::from("https://") + &String::from(API_DOMAIN) + &String::from("/helix/videos");
+
+        url.push_str("?");
+        if let Some(user_id) = user_id {
+            url.push_str("user_id=");
+            url.push_str(user_id);
+            url.push('&');
+        }
+
+        let f = self.create_client()
+            .get(&url)
+            .send()
+            .map(|mut res| {
+                println!("{:?}", res);
+                res.json::<PaginationContainer<Video>>()
+            })
+            .and_then(|json| json);
+
+        return f;
     }
 }

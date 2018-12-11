@@ -1,4 +1,8 @@
 extern crate serde_json;
+extern crate chrono;
+
+use chrono::{Duration, DateTime, Utc};
+
 
 #[derive(Debug, Deserialize)]
 pub struct DataContainer<T> {
@@ -28,14 +32,14 @@ pub struct Video {
     pub published_at: String,
     //Should be converted to a URL
     pub url: String,
-    thumbnail_url: String,
-    viewable: String,
-    view_count: i32,
-    language: String,
+    pub thumbnail_url: String,
+    pub viewable: String,
+    pub view_count: i32,
+    pub language: String,
     #[serde(rename = "type")]
-    video_type: String,
+    pub video_type: String,
     //Should be converted to a Duration
-    duration: String,
+    pub duration: String,
 }
 
 #[derive(Debug, Deserialize)]

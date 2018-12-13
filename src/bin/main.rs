@@ -6,11 +6,13 @@ extern crate twitch_api;
 
 use futures::future::Future;
 use std::env;
+use twitch_api::HelixClient;
 use twitch_api::Client;
 
 fn main() {
     dotenv::dotenv().unwrap();
-    let twitch_api = Client::new(&env::var("TWITCH_API").unwrap());
+    let client_id = &env::var("TWITCH_API").unwrap();
+    let client =  Client::new(client_id);
 
     /*
     let users = twitch_api
@@ -40,7 +42,7 @@ fn main() {
         */
         
 
-    let clip = twitch_api
+    let clip = client.helix
         .clip(&"EnergeticApatheticTarsierThisIsSparta")
         .and_then(|json| {
             println!("{:?}", json);
@@ -52,5 +54,17 @@ fn main() {
             ()
         });
 
-    tokio::run(clip);
+    let clip2 = client.kraken
+        .clip(&"EnergeticApatheticTarsierThisIsSparta")
+        .and_then(|json| {
+            print!("{:?}", json);
+            Ok(json)
+        })
+        .map(|_| ())
+        .map_err(|err| {
+            println!("{:?}", err); 
+            ()
+        });
+
+    tokio::run(clip.join(clip2).map(|_| ()).map_err(|_| ()));
 }

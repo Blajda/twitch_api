@@ -56,3 +56,21 @@ pub struct User {
     pub view_count: u32,
     pub email: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct Clip {
+    pub id: String,
+    pub url: String,
+    pub embed_url: String,
+    pub broadcaster_id: String,
+    pub broadcaster_name: String,
+    pub creator_id: String,
+    pub creator_name: String,
+    pub video_id: String,
+    pub game_id: String,
+    pub language: String,
+    pub title: String,
+    pub created_at: String,
+    pub thumbnail_url: String,
+    pub view_count: i32,
+}

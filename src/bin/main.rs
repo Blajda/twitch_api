@@ -12,6 +12,7 @@ fn main() {
     dotenv::dotenv().unwrap();
     let twitch_api = Client::new(&env::var("TWITCH_API").unwrap());
 
+    /*
     let users = twitch_api
         .users(vec![], vec!["shroud", "ninja"])
         .and_then(|json| {
@@ -36,8 +37,20 @@ fn main() {
             println!("{:?}", err); 
             ()
         });
+        */
         
 
+    let clip = twitch_api
+        .clip(&"EnergeticApatheticTarsierThisIsSparta")
+        .and_then(|json| {
+            println!("{:?}", json);
+            Ok(json)
+        })
+        .map(|_| ())
+        .map_err(|err| {
+            println!("{:?}", err); 
+            ()
+        });
 
-    tokio::run(users.join(videos).map(|_| ()));
+    tokio::run(clip);
 }

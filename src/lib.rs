@@ -13,7 +13,7 @@ use reqwest::header;
 use reqwest::r#async::{Chunk, Decoder, Request, Response};
 use reqwest::r#async::Client as ReqwestClient;
 
-use self::models::{DataContainer, PaginationContainer, User, Video};
+use self::models::{DataContainer, PaginationContainer, User, Video, Clip};
 
 const API_DOMAIN: &'static str = "api.twitch.tv";
 
@@ -103,8 +103,26 @@ impl Client {
             .get(&url)
             .send()
             .map(|mut res| {
-                println!("{:?}", res);
                 res.json::<PaginationContainer<Video>>()
+            })
+            .and_then(|json| json);
+
+        return f;
+    }
+
+    pub fn clip(&self, id: &str) 
+        -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error>
+    {
+        let url =
+            String::from("https://") + 
+            API_DOMAIN + "/helix/clips" + "?id=" + id;
+
+        let f = self.create_client()
+            .get(&url)
+            .send()
+            .map(|mut res| {
+                println!("{:?}", res);
+                res.json::<DataContainer<Clip>>()
             })
             .and_then(|json| json);
 

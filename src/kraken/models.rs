@@ -1,12 +1,19 @@
 extern crate serde_json;
 extern crate chrono;
+extern crate url;
+
+use url::Url;
+use chrono::{DateTime, Utc};
+use super::types::{UserId, VideoId};
 
 #[derive(Debug, Deserialize)]
 pub struct Clip {
     pub slug: String,
     pub tracking_id: String,
-    pub url: String,
-    pub embed_url: String,
+    #[serde(with = "url_serde")]
+    pub url: Url,
+    #[serde(with = "url_serde")]
+    pub embed_url: Url,
     pub embed_html: String,
     pub broadcaster: UserData,
     pub curator: UserData,
@@ -16,29 +23,34 @@ pub struct Clip {
     pub title: String,
     pub views: i32,
     pub duration: f32,
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
     pub thumbnails: Thumbnails,
 }
 
 
 #[derive(Debug, Deserialize)]
 pub struct Thumbnails {
-    pub medium: String,
-    pub small: String,
-    pub tiny: String,
+    #[serde(with = "url_serde")]
+    pub medium: Url,
+    #[serde(with = "url_serde")]
+    pub small: Url,
+    #[serde(with = "url_serde")]
+    pub tiny: Url,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UserData {
-    pub id: String,
+    pub id: UserId,
     pub name: String,
     pub display_name: String,
-    pub channel_url: String,
+    #[serde(with = "url_serde")]
+    pub channel_url: Url,
     pub logo: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Vod {
-    pub id: String,
-    pub url: String,
+    pub id: VideoId,
+    #[serde(with = "url_serde")]
+    pub url: Url,
 }

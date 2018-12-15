@@ -1,40 +1,29 @@
 use futures::future::Future;
 use reqwest::header;
-use reqwest::r#async::{Chunk, Decoder, Request, Response};
+use reqwest::r#async::{RequestBuilder};
 use reqwest::r#async::Client as ReqwestClient;
 
 use super::models::{DataContainer, PaginationContainer, User, Video, Clip};
-
+use super::Client; 
 const API_DOMAIN: &'static str = "api.twitch.tv";
 
 /* When Client owns a ReqwestClient, any futures spawned do not immediately
  * terminate but 'hang'. When creating a new client for each request this problem
  * does not occur. This would need to be resolved so we can benefit from keep alive
  * connections.
- *
  */
 
-pub struct Client {
-    id: String,
-}
-
 impl Client {
-    pub fn new(client_id: &str) -> Client {
-        Client { 
-            id: client_id.to_owned(),
-        }
+
+   fn apply_standard_headers(&self, request: RequestBuilder) 
+       -> RequestBuilder 
+    {
+        let client_header = header::HeaderValue::from_str(&self.inner.id).unwrap();
+
+        request.header("Client-ID", client_header)
     }
 
-    fn create_client(&self) -> ReqwestClient {
-        let mut headers = header::HeaderMap::new();
-        let auth_key = &self.id;
-        let header_value = header::HeaderValue::from_str(auth_key).unwrap();
-        headers.insert("Client-ID", header_value);
-
-        let client = ReqwestClient::builder().default_headers(headers).build().unwrap();
-        client
-    }
-
+/*
     pub fn users(
         &self,
         id: Vec<&str>,
@@ -99,6 +88,7 @@ impl Client {
 
         return f;
     }
+*/
 
     pub fn clip(&self, id: &str) 
         -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error>
@@ -107,15 +97,15 @@ impl Client {
             String::from("https://") + 
             API_DOMAIN + "/helix/clips" + "?id=" + id;
 
-        let f = self.create_client()
-            .get(&url)
+        let request = self.inner.client.get(&url);
+        let request = self.apply_standard_headers(request);
+
+        request
             .send()
             .map(|mut res| {
                 println!("{:?}", res);
                 res.json::<DataContainer<Clip>>()
             })
-            .and_then(|json| json);
-
-        return f;
+            .and_then(|json| json)
     }
 }

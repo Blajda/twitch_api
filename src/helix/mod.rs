@@ -4,9 +4,8 @@ use reqwest::r#async::Client as ReqwestClient;
 pub use super::types;
 
 use std::marker::PhantomData;
-
-pub mod endpoints;
 pub mod models;
+pub mod namespaces;
 
 use std::collections::HashSet;
 
@@ -17,10 +16,6 @@ type EndPointResult<T> = Box<Future<Item=T, Error=reqwest::Error> + Send>;
 pub trait UsersEndpoint {}
 pub trait VideosEndpoint {}
 
-
-pub trait ClipsEndpointTrait {
-    fn clip(&self, id: &str) -> EndPointResult<DataContainer<Clip>>;
-}
 
 pub trait AuthEndpoint {}
 
@@ -37,10 +32,6 @@ impl<T> Namespace<T> {
         }
     }
 }
-
-pub struct Clips {}
-
-type ClipsNamespace = Namespace<Clips>;
 
 #[derive(Clone)]
 pub struct Client {
@@ -79,13 +70,6 @@ impl Client {
             })
         }
     }
-}
-
-
-use reqwest::r#async::{RequestBuilder};
-use reqwest::header;
-
-impl Client {
 
     pub fn id(&self) -> &str {
         &self.inner.id
@@ -93,6 +77,30 @@ impl Client {
 
     pub fn client(&self) -> &ReqwestClient {
         &self.inner.client
+    }
+
+    pub fn authenticated(&self) -> bool {
+        let mut_data = self.inner.inner.lock().unwrap();
+        mut_data.token.is_some()
+    }
+
+    /*
+    pub fn scopes(&self) -> Vec<Scope> {
+        let mut_data = self.inner.inner.lock().unwrap();
+        (&mut_data.scopes).into_iter().to_owned().collect()
+    }
+    */
+
+    pub fn authenticate(self) -> AuthClientBuilder {
+        AuthClientBuilder::new(self)
+    }
+
+    pub fn deauthenticate(self) -> Client {
+        let mut_data = self.inner.inner.lock().unwrap();
+        match &mut_data.previous {
+            Some(old_client) => old_client.clone(),
+            None => self.clone()
+        }
     }
 
     fn apply_standard_headers(&self, request: RequestBuilder) 
@@ -103,37 +111,27 @@ impl Client {
     }
 }
 
-impl Client {
 
-    pub fn clips(&self) -> ClipsNamespace {
-        ClipsNamespace::new(self)
-    }
+use reqwest::r#async::{RequestBuilder};
+use reqwest::header;
 
-}
-
-impl ClipsNamespace {
-    pub fn clip(self, id: &str) -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error> {
-        use self::endpoints::clip;
-        clip(self.client, id)
-    }
-}
 
 pub struct AuthClientBuilder {
     scopes: HashSet<Scope>,
-    secret: String,
+    secret: Option<String>,
+    token: Option<String>,
     client: Client,
     /*If the user supplies a token,
     * then we can skip fetching it from the server and are authenticated
     */
-    token: Option<String>,
 }
 
 impl AuthClientBuilder {
-    pub fn new(client: Client, secret: &str) -> AuthClientBuilder {
+    pub fn new(client: Client) -> AuthClientBuilder {
         AuthClientBuilder {
             scopes: HashSet::new(),
-            secret: secret.to_owned(),
             client: client,
+            secret: None,
             token: None,
         }
     }
@@ -164,7 +162,7 @@ impl AuthClientBuilder {
 }
 
 
-#[derive(PartialEq, Hash, Eq)]
+#[derive(PartialEq, Hash, Eq, Clone)]
 pub enum Scope {
     AnalyticsReadExtensions,
     AnalyticsReadGames,

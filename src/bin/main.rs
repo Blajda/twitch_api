@@ -14,7 +14,8 @@ fn main() {
     let client =  Client::new(client_id);
 
 
-    let clip = client.helix.clips()
+    let clip = client.helix
+        .clips()
         .clip(&"EnergeticApatheticTarsierThisIsSparta")
         .map_err(|err| {
             println!("{:?}", err); 

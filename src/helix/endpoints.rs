@@ -8,19 +8,7 @@ use super::models::{DataContainer, PaginationContainer, User, Video, Clip};
 use super::Client; 
 const API_DOMAIN: &'static str = "api.twitch.tv";
 
-/* When Client owns a ReqwestClient, any futures spawned do not immediately
- * terminate but 'hang'. When creating a new client for each request this problem
- * does not occur. This would need to be resolved so we can benefit from keep alive
- * connections.
- */
-
-use super::super::GetRequest;
-use super::super::GetRequestRef;
-use std::marker::PhantomData;
-
-use super::HelixClient;
-
-fn apply_standard_headers(client: &Box<dyn HelixClient>, request: RequestBuilder) 
+fn apply_standard_headers(client: Client, request: RequestBuilder) 
    -> RequestBuilder 
 {
     let client_header = header::HeaderValue::from_str(client.id()).unwrap();
@@ -28,7 +16,7 @@ fn apply_standard_headers(client: &Box<dyn HelixClient>, request: RequestBuilder
     request.header("Client-ID", client_header)
 }
 
-pub fn clip(client: &Box<dyn HelixClient>, id: &str) 
+pub fn clip(client: Client, id: &str) 
     -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error>
 {
     let url =

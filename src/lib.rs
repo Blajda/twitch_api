@@ -1,3 +1,4 @@
+#![feature(option_replace)]
 extern crate futures;
 extern crate reqwest;
 extern crate serde;

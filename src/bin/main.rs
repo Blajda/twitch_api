@@ -8,8 +8,6 @@ use futures::future::Future;
 use std::env;
 use twitch_api::Client;
 
-use twitch_api::helix::HelixClient;
-
 fn main() {
     dotenv::dotenv().unwrap();
     let client_id = &env::var("TWITCH_API").unwrap();

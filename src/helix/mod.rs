@@ -1,13 +1,153 @@
-use std::sync::Arc;
+use futures::future::Future;
+use std::sync::{Arc, Mutex};
 use reqwest::r#async::Client as ReqwestClient;
 pub use super::types;
 
 pub mod endpoints;
 pub mod models;
 
+use std::collections::HashSet;
+
 #[derive(Clone)]
 pub struct Client {
     inner: Arc<ClientRef>
+}
+
+struct ClientRef {
+    id: String,
+    client: ReqwestClient,
+}
+
+use self::models::{DataContainer, PaginationContainer, Clip};
+
+pub trait UsersEndpoint {}
+pub trait VideosEndpoint {}
+
+pub trait ClipsEndpointTrait {
+    fn clip(&self, id: &str) -> Box<Future<Item=DataContainer<Clip>, Error=reqwest::Error> + Send>;
+}
+
+pub trait AuthEndpoint {}
+
+pub struct ClipsEndpoint {
+    client: Box<dyn HelixClient>
+}
+
+impl ClipsEndpointTrait for ClipsEndpoint {
+    fn clip(&self, id: &str) -> Box<Future<Item=DataContainer<Clip>, Error=reqwest::Error> + Send> {
+        use self::endpoints::clip;
+        Box::new(clip(&self.client, id))
+    }
+
+}
+
+pub trait HelixClient {
+    //fn users(&self) -> Box<dyn UsersEndpoint>;
+    //fn videos(&self) -> Box<dyn VideosEndpoint>;
+    fn clips(&self) -> Box<dyn ClipsEndpointTrait>;
+    //fn auth(&self) -> Box<dyn AuthEndpoint>;
+
+    fn id(&self) -> &str;
+    fn authenticated(&self) -> bool;
+    fn with_auth(self, secret: &str) -> AuthClientBuilder;
+    fn unauth(self) -> Box<dyn HelixClient>;
+
+    /* I don't want to expose this. Temp work around*/
+    fn client(&self) -> &ReqwestClient;
+}
+
+impl HelixClient for Client {
+
+    fn clips(&self) -> Box<dyn ClipsEndpointTrait> {
+        Box::new(ClipsEndpoint {
+            client: Box::new(self.clone())
+        })
+    }
+    
+    fn id(&self) -> &str {
+        &self.inner.id
+    }
+
+    fn authenticated(&self) -> bool {
+        false
+    }
+
+    fn with_auth(self, secret: &str) -> AuthClientBuilder {
+        AuthClientBuilder::new(Box::new(self), secret)
+    }
+
+    fn unauth(self) -> Box<dyn HelixClient> {
+        Box::new(self)
+    }
+
+    fn client(&self) -> &ReqwestClient {
+        &self.inner.client
+    }
+}
+
+
+#[derive(Clone)]
+pub struct AuthClient {
+
+}
+
+pub struct AuthClientBuilder {
+    scopes: HashSet<Scope>,
+    secret: String,
+    client: Box<HelixClient>,
+    /*If the user supplies a token,
+    * then we can skip fetching it from the server and are authenticated
+    */
+    token: Option<String>,
+}
+
+impl AuthClientBuilder {
+    pub fn new(client: Box<dyn HelixClient>, secret: &str) -> AuthClientBuilder {
+        AuthClientBuilder {
+            scopes: HashSet::new(),
+            secret: secret.to_owned(),
+            client: client,
+            token: None,
+        }
+    }
+
+    /*
+    pub fn build(self) -> Box<dyn HelixClient> {
+        AuthClient {
+        }
+    }
+    */
+
+    pub fn scope(mut self, scope: Scope) -> AuthClientBuilder {
+        let scopes = &mut self.scopes;
+        scopes.insert(scope);
+        self
+    }
+
+    pub fn scopes(mut self, scopes: Vec<Scope>) -> AuthClientBuilder {
+        let _scopes = &mut self.scopes;
+        for scope in scopes {
+            _scopes.insert(scope);
+        }
+        self
+    }
+
+    pub fn token(self, token: &str) -> AuthClientBuilder {
+        self
+    }
+}
+
+
+#[derive(PartialEq, Hash, Eq)]
+pub enum Scope {
+    AnalyticsReadExtensions,
+    AnalyticsReadGames,
+    BitsRead,
+    ClipsEdit,
+    UserEdit,
+    UserEditBroadcast,
+    UserReadBroadcast,
+    UserReadEmail,
 }
 
 impl Client {
@@ -31,10 +171,6 @@ impl Client {
     }
 }
 
-struct ClientRef {
-    id: String,
-    client: ReqwestClient,
-}
 
 /*
 

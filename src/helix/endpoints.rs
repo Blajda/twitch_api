@@ -2,6 +2,7 @@ use futures::future::Future;
 use reqwest::header;
 use reqwest::r#async::{RequestBuilder};
 use reqwest::r#async::Client as ReqwestClient;
+use std::sync::Arc;
 
 use super::models::{DataContainer, PaginationContainer, User, Video, Clip};
 use super::Client; 
@@ -13,15 +14,51 @@ const API_DOMAIN: &'static str = "api.twitch.tv";
  * connections.
  */
 
+use super::super::GetRequest;
+use super::super::GetRequestRef;
+use std::marker::PhantomData;
+
+use super::HelixClient;
+
+fn apply_standard_headers(client: &Box<dyn HelixClient>, request: RequestBuilder) 
+   -> RequestBuilder 
+{
+    let client_header = header::HeaderValue::from_str(client.id()).unwrap();
+
+    request.header("Client-ID", client_header)
+}
+
+pub fn clip(client: &Box<dyn HelixClient>, id: &str) 
+    -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error>
+{
+    let url =
+        String::from("https://") + 
+        API_DOMAIN + "/helix/clips" + "?id=" + id;
+
+
+    let request = client.client().get(&url);
+    let request = apply_standard_headers(client, request);
+
+    request
+        .send()
+        .map(|mut res| {
+            println!("{:?}", res);
+            res.json::<DataContainer<Clip>>()
+        })
+        .and_then(|json| json)
+            /*
+    GetRequest {
+        inner: Arc::new(GetRequestRef {
+            url: url.to_owned(),
+            returns: PhantomData,
+        })
+    }
+    */
+}
+
 impl Client {
 
-   fn apply_standard_headers(&self, request: RequestBuilder) 
-       -> RequestBuilder 
-    {
-        let client_header = header::HeaderValue::from_str(&self.inner.id).unwrap();
 
-        request.header("Client-ID", client_header)
-    }
 
 /*
     pub fn users(
@@ -90,22 +127,5 @@ impl Client {
     }
 */
 
-    pub fn clip(&self, id: &str) 
-        -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error>
-    {
-        let url =
-            String::from("https://") + 
-            API_DOMAIN + "/helix/clips" + "?id=" + id;
-
-        let request = self.inner.client.get(&url);
-        let request = self.apply_standard_headers(request);
-
-        request
-            .send()
-            .map(|mut res| {
-                println!("{:?}", res);
-                res.json::<DataContainer<Clip>>()
-            })
-            .and_then(|json| json)
-    }
 }
+

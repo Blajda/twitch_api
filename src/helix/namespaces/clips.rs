@@ -1,4 +1,5 @@
 use futures::future::Future;
+use std::collections::BTreeMap;
 use super::super::models::{DataContainer, PaginationContainer, User, Video, Clip};
 use super::super::Client; 
 const API_DOMAIN: &'static str = "api.twitch.tv";
@@ -8,7 +9,7 @@ pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
 
 impl ClipsNamespace {
-    pub fn clip(self, id: &str) -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error> {
+    pub fn clip(self, id: &str) -> ApiRequest<DataContainer<Clip>> {
         use self::clip;
         clip(self.client, id)
     }
@@ -21,22 +22,17 @@ impl Client {
     }
 }
 
+use super::super::ApiRequest;
+
+
 pub fn clip(client: Client, id: &str) 
-    -> impl Future<Item=DataContainer<Clip>, Error=reqwest::Error>
+    -> ApiRequest<DataContainer<Clip>>
 {
     let url =
         String::from("https://") + 
         API_DOMAIN + "/helix/clips" + "?id=" + id;
 
+    let params  = BTreeMap::new();
 
-    let request = client.client().get(&url);
-    let request = client.apply_standard_headers(request);
-
-    request
-        .send()
-        .map(|mut res| {
-            println!("{:?}", res);
-            res.json::<DataContainer<Clip>>()
-        })
-        .and_then(|json| json)
+    ApiRequest::new( url, params, client)
 }

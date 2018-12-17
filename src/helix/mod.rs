@@ -33,6 +33,18 @@ impl<T> Namespace<T> {
     }
 }
 
+#[derive(PartialEq, Hash, Eq, Clone)]
+pub enum Scope {
+    AnalyticsReadExtensions,
+    AnalyticsReadGames,
+    BitsRead,
+    ClipsEdit,
+    UserEdit,
+    UserEditBroadcast,
+    UserReadBroadcast,
+    UserReadEmail,
+}
+
 #[derive(Clone)]
 pub struct Client {
     inner: Arc<ClientRef>,
@@ -161,15 +173,66 @@ impl AuthClientBuilder {
     }
 }
 
+use std::collections::BTreeMap;
 
-#[derive(PartialEq, Hash, Eq, Clone)]
-pub enum Scope {
-    AnalyticsReadExtensions,
-    AnalyticsReadGames,
-    BitsRead,
-    ClipsEdit,
-    UserEdit,
-    UserEditBroadcast,
-    UserReadBroadcast,
-    UserReadEmail,
+enum RequestState<T> {
+    Uninitalized,
+    Polling(Box<dyn Future<Item=T, Error=reqwest::Error> + Send>)
+}
+
+pub struct ApiRequest<T> {
+    url: String,
+    params: BTreeMap<String, String>,
+    client: Client,
+    state: RequestState<T>,
+}
+
+impl<T: DeserializeOwned + 'static + Send> ApiRequest<T> {
+
+    pub fn new(url: String,
+               params: BTreeMap<String, String>,
+               client: Client
+               ) -> ApiRequest<T>
+    {
+        ApiRequest {
+            url,
+            params,
+            client: client,
+            state: RequestState::Uninitalized
+        }
+    }
+}
+
+use futures::Poll;
+use serde::de::DeserializeOwned;
+use futures::Async;
+use futures::try_ready;
+
+impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
+    type Item = T;
+    type Error = reqwest::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        loop {
+            match &mut self.state {
+                RequestState::Uninitalized => {
+                    let request = self.client.client().get(&self.url);
+                    let request = self.client.apply_standard_headers(request);
+                    let request = request.query(&self.params);
+
+                    let f = request
+                        .send()
+                        .map(|mut res| {
+                            res.json::<T>()
+                        })
+                        .and_then(|json| json);
+                    self.state = RequestState::Polling(Box::new(f));
+                },
+                RequestState::Polling(future) => {
+                    let res = try_ready!(future.poll());
+                    return Ok(Async::Ready(res));
+                }
+            }
+        }
+    }
 }

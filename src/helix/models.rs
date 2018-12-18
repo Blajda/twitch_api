@@ -80,3 +80,13 @@ pub struct Clip {
     pub thumbnail_url: Url,
     pub view_count: i32,
 }
+
+
+#[derive(Debug, Deserialize)]
+pub struct Credentials {
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_in: u32,
+    pub scope: Option<Vec<String>>,
+    pub token_type: String,
+}

@@ -1,3 +1,4 @@
+#![recursion_limit="128"]
 #![feature(option_replace)]
 extern crate futures;
 extern crate reqwest;
@@ -8,6 +9,7 @@ extern crate chrono;
 pub mod helix;
 pub mod kraken;
 pub mod types;
+pub mod error;
 
 pub use self::helix::Client as HelixClient;
 pub use self::kraken::Client as KrakenClient;

@@ -7,6 +7,7 @@ extern crate twitch_api;
 use futures::future::Future;
 use std::env;
 use twitch_api::Client;
+use twitch_api::HelixClient;
 
 fn main() {
     dotenv::dotenv().unwrap();
@@ -14,7 +15,12 @@ fn main() {
     let client =  Client::new(client_id);
 
 
-    let clip = client.helix
+    let authed_client = 
+        client.helix.clone()
+        .authenticate(&env::var("TWITCH_SECRET").unwrap())
+        .build();
+
+    let clip = authed_client
         .clips()
         .clip(&"EnergeticApatheticTarsierThisIsSparta")
         .map_err(|err| {

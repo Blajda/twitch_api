@@ -23,7 +23,7 @@ impl Client {
 }
 
 use super::super::ApiRequest;
-
+use reqwest::Method;
 
 pub fn clip(client: Client, id: &str) 
     -> ApiRequest<DataContainer<Clip>>
@@ -34,5 +34,5 @@ pub fn clip(client: Client, id: &str)
 
     let params  = BTreeMap::new();
 
-    ApiRequest::new( url, params, client)
+    ApiRequest::new(url, params, client, Method::GET)
 }

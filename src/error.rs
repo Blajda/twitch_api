@@ -22,6 +22,15 @@ impl From<reqwest::Error> for Error {
     }
 }
 
+impl From<()> for Error {
+
+    fn from(err: ()) -> Error {
+        Error {
+            inner: Kind::ClientError("Internal error".to_owned())
+        }
+    }
+}
+
 impl From<futures::Canceled> for Error {
 
     fn from(_err: futures::Canceled) -> Error {

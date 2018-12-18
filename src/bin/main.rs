@@ -40,6 +40,7 @@ fn main() {
      * to become idle but it will never becomes idle since we keep a reference
      * to a reqwest client which maintains a connection pool.
      */
+    std::mem::drop(authed_client);
     std::mem::drop(client);
     tokio::run(
         clip.join(clip2)

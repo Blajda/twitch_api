@@ -28,12 +28,22 @@ fn main() {
             ()
         });
 
+    let clip2 = authed_client
+        .clips()
+        .clip(&"EnergeticApatheticTarsierThisIsSparta")
+        .map_err(|err| {
+            println!("{:?}", err); 
+            ()
+        });
+
+    /*
     let clip2 = client.kraken
         .clip(&"EnergeticApatheticTarsierThisIsSparta")
         .map_err(|err| {
             println!("{:?}", err); 
             ()
         });
+        */
 
     /* Prevents tokio from **hanging** 
      * since tokio::run blocks the current thread and waits for the entire runtime

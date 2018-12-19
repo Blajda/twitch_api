@@ -39,3 +39,14 @@ impl From<futures::Canceled> for Error {
         }
     }
 }
+
+use std::sync::mpsc::SendError;
+
+impl<T> From<SendError<T>> for Error {
+
+    fn from(_err: SendError<T>) -> Error {
+        Error {
+            inner: Kind::ClientError("Channel unexpectedly closed".to_owned())
+        }
+    }
+}

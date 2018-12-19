@@ -232,10 +232,15 @@ impl AuthClientBuilder {
 use std::collections::BTreeMap;
 use reqwest::Method;
 
+struct Request {
+    inner: Arc<RequestRef>,
+}
+
 struct RequestRef {
     url: String,
     params: BTreeMap<String, String>,
     client: Client,
+    ratelimit: Option<Ratelimit>,
     method: Method,
 }
 
@@ -264,6 +269,7 @@ impl<T: DeserializeOwned + 'static + Send> ApiRequest<T> {
                 params: params,
                 client: client,
                 method: method,
+                ratelimit: None,
             }),
             state: RequestState::Uninitalized
         }
@@ -281,197 +287,27 @@ struct AuthWaiter {
     waiter: Client,
 }
 
-//f.barrier(auth).barrier(ratelimit).and_then(|result| {})
-//A ratelimiter must be aware when a limit is hit, the upper limit,
-//and remaining requests. (use case specific)
-//
-//This can be done by either letting the ratelimiter drive the request
-//so it can inspect returned headers or by maybe? using a channel to inform 
-//the limiter 
-//
-//Submit task to ratelimiter.
-//Check if the limit is hit and if we are polling
-//  1  if we hit the limit and are not polling, add to the queue and start
-//      polling.
-//  1. if we are polling add the request to the queue
-//  2. if we are not polling and not locked then 
-//      send the request and increment the in-flight counter.
-//
-//     when the request has completed without errors then decrement
-//     the in-flight counter, update limiter data, and return the 
-//     result to the requester.
-//
-//     On error, EITHER: 
-//          1. If the error is rate limiter related place the request
-//             back in a queue, return other errors. (Prevents starvation)
-//          2. Return all errors back to the Requester they can resubmit
-//             the request 
-//        
-// The main difference is that the condition is dependent on the waiter's 
-// future result. 
-//
-// For auth requests we can use an OkFuture that returns the waiter and never errs
-//
-// So waiters must provide IntoFuture, a future than can poll the condition,
-// and a is locked.
-// The lock check must be pure (no side effects) but IntoFuture may
-// have side effects (eg. increments in-flight counter)
-//
-//  The result of the IntoFuture is returned to caller or the Err of the poll
-//  Future. For simplicity these will be the same type.
-//     
-//  Should the poll condition trait be located on the Waiter or the Barrier?
-//  All waiters in a barrier must use the same condition.
 
-pub trait Waiter {
-    type Item: Send + 'static;
-    type Error: From<Self::ConditionError> + From<oneshot::Canceled> + Send + 'static;
-    type ConditionError: Send + Clone + 'static;
-
-    fn blocked(&self) -> bool;
-    fn condition_poller(&self) -> Box<Future<Item=(), Error=Self::ConditionError> + Send>;
-    fn into_future(self) -> Box<Future<Item=Self::Item, Error=Self::Error> + Send>;
+pub struct RatelimitWaiter {
+    limit: Ratelimit,
+    request: Request,
 }
 
-pub trait BarrierSync<W: Waiter> {
-    fn wait_for(&mut self, waiter: W) -> Box<Future<Item=W::Item, Error=W::Error> + Send>;
+#[derive(Debug, Clone)]
+pub struct Ratelimit {
+    inner: Arc<Mutex<RatelimitRef>>    
 }
 
-pub struct Barrier<W: Waiter> {
-    //queue: Vec<(W, oneshot::Sender<Result<W::Item, W::Error>>)>,
-    sink: Option<mpsc::Sender<(W, oneshot::Sender<Result<W::Item, W::Error>>)>>,
+#[derive(Debug, Clone)]
+pub struct RatelimitRef {
+    remaining: i32,
+    inflight: i32,
+    quota: i32,
+    reset: Option<u32>,
 }
 
-impl<W: Waiter + 'static + Send> Barrier<W> {
-    pub fn new() -> Barrier<W> {
-
-        //let f = barrier_rx.for_each(|_| Ok(())).map(|_| ()).map_err(|_| ());
-        //tokio::spawn(f);
-
-        Barrier {
-            sink: None,
-        }
-    }
-
-    fn barrier_task(&self, receiver: mpsc::Receiver<(W, oneshot::Sender<Result<W::Item, W::Error>>)>) {
-
-        enum Message<W: Waiter> {
-            Request((W, oneshot::Sender<Result<<W as Waiter>::Item, <W as Waiter>::Error>>)),
-            OnCondition(Result<(), <W as Waiter>::ConditionError>),
-        }
-
-        let mut polling = false;
-        let (on_condition_tx, on_condition_rx) = mpsc::unbounded();
-        let mut waiters = Vec::new();
-        let f1 = receiver.map(|request| Message::Request(request));
-        let f2 = on_condition_rx.map(|result| Message::OnCondition(result));
-
-        let inner_condition = on_condition_tx.clone();
-        let f =
-            f1.select(f2).for_each(move |message| {
-            match message {
-                Message::Request((waiter, backchan)) => {
-                    if waiter.blocked() && !polling {
-                        println!("locked");
-
-                        let c1 = inner_condition.clone();
-                        let f = waiter
-                            .condition_poller()
-                            .map(|_| ())
-                            .then(|result| {
-                                c1.send(result).wait();
-                                Ok(())
-                            });
-                        tokio::spawn(f);
-                        polling = true;
-
-                        waiters.push((waiter, backchan));
-                    } else if waiter.blocked() || polling {
-                        println!("polling");
-                        waiters.push((waiter, backchan));
-                    } else {
-                        println!("Pass along waiter!");
-                        //Execute the waiters future//
-                        //backchan.send(Ok(waiter));
-                        let f = waiter.into_future()
-                            .then(|res| {
-                                backchan.send(res);
-                                Ok(())
-                            });
-
-                        tokio::spawn(f);
-                    }
-                },
-                Message::OnCondition(result) => {
-                    polling = false;
-                    /*Resubmit all waiters back to the request channel
-                     * At least one waiter will pass the barrier
-                     */
-                    match result {
-                        Ok(_) => {
-                            while waiters.len() > 0 {
-                                //Execute the waiters future//
-                                //backchan.send(Ok(waiter));
-                                let (waiter, backchan) = waiters.pop().unwrap();
-                                let f = waiter.into_future()
-                                    .then(|res| {
-                                        backchan.send(res);
-                                        Ok(())
-                                    });
-
-                                tokio::spawn(f);
-                            }
-                        }, 
-                        Err(err) => {
-                            /*
-                            while waiters.len() > 0 {
-                                let (waiter, backchan) = waiters.pop().unwrap();
-                                backchan.send(Err(<W as Waiter>::Error::from(err.clone())));
-                            }
-                            */
-                        }
-                    }
-                }
-            }
-
-
-
-            Ok(()) 
-        })
-        .map(|_| ())
-        .map_err(|_| ());
-
-    tokio::spawn(f);
-    }
-}
-
-impl<W: Waiter + 'static + Send> BarrierSync<W> for Barrier<W> {
-    fn wait_for(&mut self, waiter: W) -> Box<Future<Item=W::Item, Error=W::Error> + Send> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-
-        if self.sink.is_none() {
-            let (barrier_tx, barrier_rx) = mpsc::channel(40); 
-            self.barrier_task(barrier_rx);
-            self.sink.replace(barrier_tx);
-        }
-
-        let chan = self.sink.as_mut().unwrap();
-
-        /*Clean this up. join it with f2*/
-        let f = chan.clone().send((waiter, resp_tx)).map(|_| ()).map_err(|_| ());
-        tokio::spawn(f);
-
-        let f2 = resp_rx.then(|result| {
-            match result {
-                Ok(Ok(result)) => Ok(result),
-                Ok(Err(err)) => Err(err),
-                Err(err) => Err(W::Error::from(err)),
-            }
-        });
-
-        Box::new(f2)
-    }
-}
+use crate::sync::waiter::Waiter;
+use crate::sync::barrier::{BarrierSync, Barrier};
 
 impl Waiter for AuthWaiter {
     type Item = Self;
@@ -509,6 +345,47 @@ impl Waiter for AuthWaiter {
     fn into_future(self) -> Box<Future<Item=Self::Item, Error=Self::Error> + Send> {
         Box::new(futures::future::ok(self))
     }
+}
+
+impl Waiter for RatelimitWaiter {
+    type Item = reqwest::r#async::Response;
+    type Error = Error;
+    type ConditionError = ();
+
+    fn blocked(&self) -> bool {
+        let limits = self.limit.inner.lock().unwrap();
+        limits.remaining - limits.inflight <= 0
+    }
+
+    fn condition_poller(&self)
+        -> Box<Future<Item=(), Error=Self::ConditionError> + Send> 
+    {
+        /*TODO: Really basic for now*/
+        use futures_timer::Delay;
+        use std::time::Duration;
+        Box::new(
+            Delay::new(Duration::from_secs(60))
+                .map_err(|_| ())
+        )
+    }
+
+    fn into_future(self) -> Box<Future<Item=Self::Item, Error=Self::Error> + Send> {
+        let client = &self.request.inner.client;
+        let reqwest = client.client();
+        let method = &self.request.inner.method;
+        let url = &self.request.inner.url;
+        let params = &self.request.inner.params;
+
+        let builder = reqwest.request(method.clone(), url);
+        let builder = client.apply_standard_headers(builder);
+        let r = builder.query(params);
+
+        let limits = &self.limit.clone();
+
+        /* TODO update limits */
+        Box::new(r.send().map_err(|err| Error::from(err)))
+    }
+
 }
 
 /* Todo: If the polled futures returns an error than all the waiters should

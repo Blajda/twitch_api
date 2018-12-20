@@ -530,7 +530,7 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
 
                                     let maybe_remaining = 
                                         response.headers()
-                                        .get(&mut_limits.header_limit)
+                                        .get(&mut_limits.header_remaining)
                                         .and_then(|x| x.to_str().ok())
                                         .and_then(|x| x.parse::<i32>().ok());
 
@@ -540,7 +540,7 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
 
                                     let maybe_reset =
                                         response.headers()
-                                        .get(&mut_limits.header_limit)
+                                        .get(&mut_limits.header_reset)
                                         .and_then(|x| x.to_str().ok())
                                         .and_then(|x| x.parse::<u32>().ok());
 

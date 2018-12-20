@@ -3,7 +3,7 @@ use super::super::models::{DataContainer, PaginationContainer, User, Video, Clip
 use super::super::Client; 
 use std::collections::BTreeMap;
 const API_DOMAIN: &'static str = "api.twitch.tv";
-use super::super::Namespace;
+use super::Namespace;
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;

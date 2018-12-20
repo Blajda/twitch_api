@@ -3,25 +3,28 @@ use super::super::models::{DataContainer, PaginationContainer, User, Video, Clip
 use super::super::Client; 
 use std::collections::BTreeMap;
 const API_DOMAIN: &'static str = "api.twitch.tv";
-use super::super::Namespace;
+use super::Namespace;
 
 pub struct Users {}
 type UsersNamespace = Namespace<Users>;
 
 impl UsersNamespace {
+    /*
     pub fn users(self, id: Vec<&str>, login: Vec<&str>) -> impl Future<Item=DataContainer<User>, Error=reqwest::Error> {
-        use self::users;
-        users(self.client, id, login)
+        //use self::users;
+        //users(self.client, id, login)
     }
+    */
 }
-
+/*
 impl Client {
 
     pub fn users(&self) -> UsersNamespace {
         UsersNamespace::new(self)
     }
 }
-
+*/
+/*
 pub fn users(
         client: Client,
         id: Vec<&str>,
@@ -50,3 +53,4 @@ pub fn users(
             })
             .and_then(|json| json)
 }
+*/

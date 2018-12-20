@@ -6,17 +6,16 @@ extern crate twitch_api;
 
 use futures::future::Future;
 use std::env;
-use twitch_api::Client;
 use twitch_api::HelixClient;
 
 fn main() {
     dotenv::dotenv().unwrap();
     let client_id = &env::var("TWITCH_API").unwrap();
-    let client =  Client::new(client_id);
+    let client =  HelixClient::new(client_id);
 
 
     let authed_client = 
-        client.helix.clone()
+        client
         .authenticate(&env::var("TWITCH_SECRET").unwrap())
         .build();
 
@@ -50,13 +49,21 @@ fn main() {
      * to become idle but it will never becomes idle since we keep a reference
      * to a reqwest client which maintains a connection pool.
      */
-    std::mem::drop(authed_client);
-    std::mem::drop(client);
+    //std::mem::drop(authed_client);
     tokio::run(
         clip.join(clip2)
             .and_then(|(c1, c2)| {
                 println!("{:?} {:?}", c1, c2);
                 Ok((c1, c2))
+            }).and_then(move |_| {
+                authed_client
+                    .clips()
+                    .clip(&"EnergeticApatheticTarsierThisIsSparta")
+                    .map(|_| ())
+                    .map_err(|err| {
+                        println!("{:?}", err); 
+                        ()
+                    })
             })
             .map(|_| ())
             .map_err(|_| ())

@@ -1,9 +1,10 @@
-use futures::future::Future;
 use std::collections::BTreeMap;
 use super::super::models::{DataContainer, PaginationContainer, User, Video, Clip};
 use super::super::Client; 
+use super::super::ClientTrait;
+use super::super::RatelimitKey;
 const API_DOMAIN: &'static str = "api.twitch.tv";
-use super::super::Namespace;
+use super::Namespace;
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
@@ -30,10 +31,9 @@ pub fn clip(client: Client, id: &str)
 {
     let url =
         String::from("https://") + 
-        API_DOMAIN + "/helix/clips" + "?id=" + id;
+        client.domain() + "/helix/clips" + "?id=" + id;
 
     let params  = BTreeMap::new();
-    let limit = client.default_ratelimit();
 
-    ApiRequest::new(url, params, client, Method::GET, Some(limit))
+    ApiRequest::new(url, params, client, Method::GET, Some(RatelimitKey::Default))
 }

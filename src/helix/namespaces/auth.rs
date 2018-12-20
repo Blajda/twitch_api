@@ -1,9 +1,9 @@
-use futures::future::Future;
 use std::collections::BTreeMap;
 use super::super::models::Credentials;
 use super::super::Client; 
 const ID_DOMAIN: &'static str = "id.twitch.tv";
-use super::super::Namespace;
+use super::Namespace;
+use super::super::ClientTrait;
 
 pub struct Auth {}
 type AuthNamespace = Namespace<Auth>;
@@ -34,10 +34,10 @@ pub fn client_credentials(client: Client, secret: &str)
         ID_DOMAIN + "/oauth2/token";
 
     let mut params = BTreeMap::new();
-    params.insert("client_id".to_owned(), client.id().to_owned());
-    params.insert("client_secret".to_owned(), secret.to_owned());
-    params.insert("grant_type".to_owned(), "client_credentials".to_owned());
-    params.insert("scope".to_owned(), "".to_owned());
+    params.insert("client_id", client.id());
+    params.insert("client_secret", secret);
+    params.insert("grant_type", "client_credentials");
+    params.insert("scope", "");
     
-    ApiRequest::new(url, params, client, Method::POST, None)
+    ApiRequest::new(url, params, client.clone(), Method::POST, None)
 }

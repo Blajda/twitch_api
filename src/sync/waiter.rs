@@ -1,13 +1,13 @@
 use futures::sync::oneshot;
 use futures::Future;
+use futures::future::{Shared, SharedError};
+use crate::error::ConditionError;
 
 pub trait Waiter {
-    type Item: Send + 'static;
-    type Error: From<Self::ConditionError> 
-        + From<oneshot::Canceled> + From<()> + Send + 'static;
-    type ConditionError: Send + Clone + 'static;
+    type Item: Default;
+    type Error: From<SharedError<ConditionError>>; 
 
     fn blocked(&self) -> bool;
-    fn condition_poller(&self) -> Box<Future<Item=(), Error=Self::ConditionError> + Send>;
-    fn into_future(self) -> Box<Future<Item=Self::Item, Error=Self::Error> + Send>;
+    fn condition(&self) 
+        -> Shared<Box<Future<Item=(), Error=ConditionError> + Send>>;
 }

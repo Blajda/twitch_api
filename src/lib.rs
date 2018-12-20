@@ -1,5 +1,6 @@
 #![recursion_limit="128"]
 #![feature(option_replace)]
+#![feature(associated_type_defaults)]
 extern crate futures;
 extern crate reqwest;
 extern crate serde;

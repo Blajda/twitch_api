@@ -1,5 +1,19 @@
 use reqwest::Error as ReqwestError;
+use futures::future::SharedError;
 use std::convert::From;
+
+/*TODO: How should condition errors be handled?
+ * Ultimately the future must resolve so if the condition
+ * errs than all it's waiters must err.
+ */
+#[derive(Clone, Debug)]
+pub struct ConditionError{}
+
+impl From<SharedError<ConditionError>> for ConditionError {
+    fn from(other: SharedError<ConditionError>) -> Self {
+        ConditionError{}
+    }
+}
 
 #[derive(Debug)]
 enum Kind {
@@ -47,6 +61,15 @@ impl<T> From<SendError<T>> for Error {
     fn from(_err: SendError<T>) -> Error {
         Error {
             inner: Kind::ClientError("Channel unexpectedly closed".to_owned())
+        }
+    }
+}
+
+impl From<ConditionError> for Error {
+
+    fn from(_err: ConditionError) -> Error {
+        Error {
+            inner: Kind::ClientError("Oneshot channel unexpectedly closed".to_owned())
         }
     }
 }

@@ -39,5 +39,5 @@ pub fn client_credentials(client: Client, secret: &str)
     params.insert("grant_type".to_owned(), "client_credentials".to_owned());
     params.insert("scope".to_owned(), "".to_owned());
     
-    ApiRequest::new(url, params, client, Method::POST)
+    ApiRequest::new(url, params, client, Method::POST, None)
 }

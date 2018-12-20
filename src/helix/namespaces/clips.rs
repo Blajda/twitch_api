@@ -33,6 +33,7 @@ pub fn clip(client: Client, id: &str)
         API_DOMAIN + "/helix/clips" + "?id=" + id;
 
     let params  = BTreeMap::new();
+    let limit = client.default_ratelimit();
 
-    ApiRequest::new(url, params, client, Method::GET)
+    ApiRequest::new(url, params, client, Method::GET, Some(limit))
 }

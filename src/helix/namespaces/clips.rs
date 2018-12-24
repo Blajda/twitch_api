@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
-use super::super::models::{DataContainer, PaginationContainer, User, Video, Clip};
+use super::super::models::{DataContainer, Clip};
 use super::super::Client; 
 use super::super::ClientTrait;
 use super::super::RatelimitKey;
-const API_DOMAIN: &'static str = "api.twitch.tv";
 use super::Namespace;
 
 pub struct Clips {}

@@ -657,7 +657,6 @@ impl Waiter for AuthWaiter {
             .auth()
             .client_credentials(secret)
             .map(move |credentials| {
-                println!("{:?}", credentials);
                 if let ClientType::Auth(inner) = client.inner.as_ref() {
                     let mut auth = inner.auth_state.lock().unwrap();
                     auth.state = AuthState::Auth;
@@ -677,7 +676,6 @@ impl Waiter for RatelimitWaiter {
 
     fn blocked(&self) -> bool {
         let limits = self.limit.inner.lock().unwrap();
-        println!("{}, {}, {}", limits.limit, limits.remaining, limits.inflight);
         limits.remaining - limits.inflight <= 0
     }
 
@@ -884,7 +882,6 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
                                 err
                             })
                             .map(move |mut response| {
-                                println!("{:?}", response);
                                 if let Some(key) = key_ok {
                                     if let Some(limits) = client_ok.ratelimit(key) {
                                         let mut mut_limits = limits.inner.lock().unwrap();

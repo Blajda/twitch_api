@@ -5,6 +5,7 @@ extern crate tokio;
 extern crate twitch_api;
 
 use futures::future::Future;
+use futures::Stream;
 use std::env;
 use twitch_api::HelixClient;
 
@@ -35,6 +36,18 @@ fn main() {
             ()
         });
 
+    let videos = authed_client
+        .videos()
+        .by_user("67955580")
+        .take(10)
+        .for_each(|collection| {
+            println!("{:?}", collection);
+            Ok(())
+        })
+        .map(|_| ())
+        .map_err(|err| {println!("{:?}", err); ()});
+
+
     /*
     let clip2 = client.kraken
         .clip(&"EnergeticApatheticTarsierThisIsSparta")
@@ -51,6 +64,7 @@ fn main() {
      */
     //std::mem::drop(authed_client);
     tokio::run(
+        /*
         clip.join(clip2)
             .and_then(|(c1, c2)| {
                 println!("{:?} {:?}", c1, c2);
@@ -67,5 +81,7 @@ fn main() {
             })
             .map(|_| ())
             .map_err(|_| ())
+            */
+        videos
     );
 }

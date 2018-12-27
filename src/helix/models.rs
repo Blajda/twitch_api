@@ -7,7 +7,6 @@ use super::types::{UserId, VideoId, ChannelId};
 
 pub trait PaginationTrait {
     fn cursor<'a>(&'a self) -> &'a Option<Cursor>;
-    fn set_request(&mut self);
 }
 
 #[derive(Debug, Deserialize)]
@@ -17,17 +16,14 @@ pub struct DataContainer<T> {
 
 impl<T> PaginationTrait for DataContainer<T> {
     fn cursor<'a>(&'a self) -> &'a Option<Cursor> { &None }
-    fn set_request(&mut self) {}
 }
 
 impl<T> PaginationTrait for PaginationContainer<T> {
     fn cursor<'a>(&'a self) -> &'a Option<Cursor> { &self.pagination }
-    fn set_request(&mut self) {}
 }
 
 impl PaginationTrait for Credentials {
     fn cursor<'a>(&'a self) -> &'a Option<Cursor> { &None }
-    fn set_request(&mut self) {}
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,8 +34,9 @@ pub struct PaginationContainer<T> {
 
 #[derive(Debug, Deserialize)]
 pub struct Cursor {
-    cursor: String
+    pub cursor: Option<String>
 }
+
 
 #[derive(Debug, Deserialize)]
 pub struct Credentials {

@@ -1,20 +1,34 @@
-use futures::future::Future;
-use super::super::models::{DataContainer, PaginationContainer, User, Video, Clip};
+use super::super::models::{PaginationContainer, Video};
 use super::super::Client; 
-use std::collections::BTreeMap;
-const API_DOMAIN: &'static str = "api.twitch.tv";
+use super::super::ClientTrait;
+use super::super::RatelimitKey;
+use super::super::IterableApiRequest;
 use super::Namespace;
+
+use std::collections::BTreeMap;
+use reqwest::Method;
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
 
 impl VideosNamespace {
-    /*
-    pub fn videos(self, video_id) -> impl Future<Item=DataContainer<User>, Error=reqwest::Error> {
-        use self::videos;
-        users(self.client, id, login)
+    pub fn by_id(self, ids: Vec<&str>)
+        -> IterableApiRequest<PaginationContainer<Video>> {
+        use self::by_id;
+        by_id(self.client, ids)
     }
-    */
+
+    pub fn by_user(self, user_id: &str)
+        -> IterableApiRequest<PaginationContainer<Video>> {
+        use self::by_user;
+        by_user(self.client, user_id)
+    }
+
+    pub fn for_game(self, game_id: &str) 
+        -> IterableApiRequest<PaginationContainer<Video>> {
+        use self::for_game;
+        for_game(self.client, game_id)
+    }
 }
 
 impl Client {
@@ -24,31 +38,40 @@ impl Client {
     }
 }
 
-/*
-pub fn videos(
-    client: Client,
-    video_id:   Option<Vec<&str>>,
-    user_id:    Option<&str>,
-    game_id:    Option<&str>,
-) -> impl Future<Item = PaginationContainer<Video>, Error = reqwest::Error> {
-    let mut url =
-        String::from("https://") + &String::from(API_DOMAIN) + &String::from("/helix/videos");
+pub fn by_id(client: Client, ids: Vec<&str>) 
+    -> IterableApiRequest<PaginationContainer<Video>> {
+    let url =
+        String::from("https://") + client.domain() + &String::from("/helix/videos");
 
     let mut params  = BTreeMap::new();
-    for user in user_id {
-        params.insert("user_id", user);
+    for id in ids {
+        params.insert("id", id);
     }
 
-    let request = client.client().get(&url);
-    let request = client.apply_standard_headers(request);
-    let request = request.query(&params);
-
-    request
-        .send()
-        .map(|mut res| {
-            res.json::<PaginationContainer<Video>>()
-        })
-        .and_then(|json| json)
-
+    IterableApiRequest::new(url, params, client,
+                            Method::GET, Some(RatelimitKey::Default))
 }
-*/
+
+pub fn by_user(client: Client, user_id: &str) 
+    -> IterableApiRequest<PaginationContainer<Video>> {
+    let url =
+        String::from("https://") + client.domain() + &String::from("/helix/videos");
+
+    let mut params  = BTreeMap::new();
+    params.insert("user_id", user_id);
+
+    IterableApiRequest::new(url, params, client,
+                            Method::GET, Some(RatelimitKey::Default))
+}
+
+pub fn for_game(client: Client, game_id: &str) 
+    -> IterableApiRequest<PaginationContainer<Video>> {
+    let url =
+        String::from("https://") + client.domain() + &String::from("/helix/videos");
+
+    let mut params  = BTreeMap::new();
+    params.insert("game_id", game_id);
+
+    IterableApiRequest::new(url, params, client,
+                            Method::GET, Some(RatelimitKey::Default))
+}

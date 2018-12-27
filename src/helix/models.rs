@@ -3,11 +3,9 @@ extern crate chrono;
 
 use url::Url;
 use chrono::{DateTime, Utc};
-use super::types::{UserId, VideoId, ChannelId};
+use crate::types::{UserId, VideoId, ChannelId};
 
-pub trait PaginationTrait {
-    fn cursor<'a>(&'a self) -> &'a Option<Cursor>;
-}
+use crate::client::PaginationTrait;
 
 #[derive(Debug, Deserialize)]
 pub struct DataContainer<T> {
@@ -15,15 +13,25 @@ pub struct DataContainer<T> {
 }
 
 impl<T> PaginationTrait for DataContainer<T> {
-    fn cursor<'a>(&'a self) -> &'a Option<Cursor> { &None }
+    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
 }
 
 impl<T> PaginationTrait for PaginationContainer<T> {
-    fn cursor<'a>(&'a self) -> &'a Option<Cursor> { &self.pagination }
+    fn cursor<'a>(&'a self) -> Option<&'a str> { 
+        match self.pagination.as_ref() {
+            Some(cursor) => {
+                match cursor.cursor.as_ref() {
+                    Some(cursor) => Some(cursor),
+                    None => None,
+                }
+            },
+            None => None
+        }
+    }
 }
 
 impl PaginationTrait for Credentials {
-    fn cursor<'a>(&'a self) -> &'a Option<Cursor> { &None }
+    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,17 +44,6 @@ pub struct PaginationContainer<T> {
 pub struct Cursor {
     pub cursor: Option<String>
 }
-
-
-#[derive(Debug, Deserialize)]
-pub struct Credentials {
-    pub access_token: String,
-    pub refresh_token: Option<String>,
-    pub expires_in: u32,
-    pub scope: Option<Vec<String>>,
-    pub token_type: String,
-}
-
 
 #[derive(Debug, Deserialize)]
 pub struct Video {
@@ -106,4 +103,13 @@ pub struct Clip {
     #[serde(with = "url_serde")]
     pub thumbnail_url: Url,
     pub view_count: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Credentials {
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_in: u32,
+    pub scope: Option<Vec<String>>,
+    pub token_type: String,
 }

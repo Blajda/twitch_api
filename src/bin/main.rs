@@ -15,10 +15,11 @@ fn main() {
     let client =  HelixClient::new(client_id);
 
 
-    let authed_client = 
-        client
+    let authed_client = client;
+        /*
         .authenticate(&env::var("TWITCH_SECRET").unwrap())
         .build();
+        */
 
     let clip = authed_client
         .clips()

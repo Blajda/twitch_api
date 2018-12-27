@@ -1,12 +1,11 @@
 use super::super::models::{PaginationContainer, Video};
 use super::super::Client; 
-use super::super::ClientTrait;
-use super::super::RatelimitKey;
-use super::super::IterableApiRequest;
 use super::Namespace;
 
+use crate::client::{ClientTrait, RatelimitKey, IterableApiRequest};
 use std::collections::BTreeMap;
 use reqwest::Method;
+
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
@@ -40,6 +39,7 @@ impl Client {
 
 pub fn by_id(client: Client, ids: Vec<&str>) 
     -> IterableApiRequest<PaginationContainer<Video>> {
+    let client = client.inner;
     let url =
         String::from("https://") + client.domain() + &String::from("/helix/videos");
 
@@ -54,6 +54,7 @@ pub fn by_id(client: Client, ids: Vec<&str>)
 
 pub fn by_user(client: Client, user_id: &str) 
     -> IterableApiRequest<PaginationContainer<Video>> {
+    let client = client.inner;
     let url =
         String::from("https://") + client.domain() + &String::from("/helix/videos");
 
@@ -66,6 +67,7 @@ pub fn by_user(client: Client, user_id: &str)
 
 pub fn for_game(client: Client, game_id: &str) 
     -> IterableApiRequest<PaginationContainer<Video>> {
+    let client = client.inner;
     let url =
         String::from("https://") + client.domain() + &String::from("/helix/videos");
 

@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 use super::super::models::{DataContainer, Clip};
 use super::super::Client; 
-use super::super::ClientTrait;
-use super::super::RatelimitKey;
 use super::Namespace;
+
+use crate::client::{RatelimitKey, ClientTrait, ApiRequest};
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
@@ -22,12 +22,12 @@ impl Client {
     }
 }
 
-use super::super::ApiRequest;
 use reqwest::Method;
 
 pub fn clip(client: Client, id: &str) 
     -> ApiRequest<DataContainer<Clip>>
 {
+    let client = client.inner;
     let url =
         String::from("https://") + 
         client.domain() + "/helix/clips" + "?id=" + id;

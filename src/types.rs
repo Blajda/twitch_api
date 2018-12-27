@@ -31,7 +31,7 @@ struct IntegerIdRef<T> {
 }
 
 impl<T> IntegerId<T> {
-    fn new(id: u32) -> IntegerId<T> {
+    pub fn new(id: u32) -> IntegerId<T> {
         IntegerId { 
             inner: Arc::new(IntegerIdRef {
                 id: id.to_string(),
@@ -50,6 +50,20 @@ impl<T> AsRef<u32> for IntegerId<T> {
 
 impl<T> AsRef<str> for IntegerId<T> {
     fn as_ref(&self) -> &str {
+        &self.inner.id
+    }
+}
+
+use std::convert::Into;
+
+impl<T> Into<u32> for &IntegerId<T> {
+    fn into(self) -> u32 {
+        self.inner.int
+    }
+}
+
+impl<'a, T> Into<&'a str> for &'a IntegerId<T> {
+    fn into(self) -> &'a str {
         &self.inner.id
     }
 }

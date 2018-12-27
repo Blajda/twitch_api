@@ -11,11 +11,13 @@ use std::marker::PhantomData;
 
 pub struct User {}
 pub struct Video {}
+pub struct Game {}
 
 pub type UserId = IntegerId<User>;
 pub type ChannelId = UserId;
 pub type VideoId = IntegerId<Video>;
 pub type ClipId = Id;
+pub type GameId = IntegerId<Game>;
 
 #[derive(Clone)]
 pub struct IntegerId<T> {
@@ -113,6 +115,14 @@ impl<'de, T> Deserialize<'de> for IntegerId<T> {
 
 pub struct Id {
     inner: String
+}
+
+impl Id {
+    pub fn new(id: &str) -> Id {
+        Id {
+            inner: id.to_owned(),
+        }
+    }
 }
 
 impl AsRef<str> for Id {

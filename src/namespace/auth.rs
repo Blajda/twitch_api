@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use crate::models::Credentials;
 use crate::client::Client; 
-const ID_DOMAIN: &'static str = "id.twitch.tv";
 use crate::client::{ClientTrait, ApiRequest};
 use reqwest::Method;
 use std::marker::PhantomData;
@@ -43,7 +42,7 @@ pub fn client_credentials(client: Client, secret: &str)
 
     let url =
         String::from("https://") + 
-        ID_DOMAIN + "/oauth2/token";
+        client.auth_domain() + "/oauth2/token";
 
     let mut params = BTreeMap::new();
     params.insert("client_id", client.id());

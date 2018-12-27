@@ -56,8 +56,11 @@ pub struct Video {
     pub published_at: DateTime<Utc>,
     #[serde(with = "url_serde")]
     pub url: Url,
-    #[serde(with = "url_serde")]
-    pub thumbnail_url: Url,
+    /*FIXME: Serde will attempt to parse an empty string.
+    * In this case this should be None when thumbnail_url is an empty string
+    */
+    //#[serde(with = "url_serde")]
+    pub thumbnail_url: String, //Option<Url>,
     pub viewable: String,
     pub view_count: i32,
     pub language: String,

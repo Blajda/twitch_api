@@ -1,15 +1,8 @@
 use std::marker::PhantomData;
-
-pub use super::Client;
-pub use crate::client::{RatelimitKey, ClientTrait, ApiRequest, IterableApiRequest};
-pub use std::collections::BTreeMap;
-pub use reqwest::Method;
 pub use super::models;
+pub use super::Client;
 
 pub mod clips;
-pub mod users;
-pub mod videos;
-pub mod auth;
 
 pub struct Namespace<T> {
     client: Client,

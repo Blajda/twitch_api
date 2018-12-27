@@ -10,10 +10,10 @@ pub mod helix;
 pub mod kraken;
 pub mod types;
 pub mod error;
-pub mod sync;
+mod sync;
 pub mod namespace;
 pub mod client;
 pub mod models;
 
 pub use self::helix::Client as HelixClient;
-//pub use self::kraken::Client as KrakenClient;
+pub use self::kraken::Client as KrakenClient;

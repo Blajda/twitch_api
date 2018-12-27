@@ -5,6 +5,7 @@ extern crate url;
 use url::Url;
 use chrono::{DateTime, Utc};
 use super::types::{UserId, VideoId};
+use crate::client::PaginationTrait;
 
 #[derive(Debug, Deserialize)]
 pub struct Clip {
@@ -25,6 +26,10 @@ pub struct Clip {
     pub duration: f32,
     pub created_at: DateTime<Utc>,
     pub thumbnails: Thumbnails,
+}
+
+impl PaginationTrait for Clip {
+    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
 }
 
 

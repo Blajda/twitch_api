@@ -1,53 +1,19 @@
-use reqwest::header;
-use std::sync::Arc;
-use reqwest::r#async::RequestBuilder;
-use reqwest::r#async::Client as ReqwestClient;
+use crate::client::Client as GenericClient;
+use crate::client::Version;
 pub use super::types;
 
-mod endpoints;
-mod models;
-
-
-const ACCEPT: &str = "application/vnd.twitchtv.v5+json";
-pub const API_DOMAIN: &str = "api.twitch.tv";
+mod namespaces;
+pub mod models;
 
 #[derive(Clone)]
 pub struct Client {
-    inner: Arc<ClientRef>,
-}
-
-struct ClientRef {
-    id: String,
-    client: ReqwestClient
+    inner: GenericClient
 }
 
 impl Client {
     pub fn new(id: &str) -> Client {
         Client {
-            inner: Arc::new(ClientRef {
-                id: id.to_owned(),
-                client: ReqwestClient::new(),
-            })
+            inner: GenericClient::new(id, Version::Kraken)
         }
-    }
-
-    pub fn new_with_client(id: &str, client: ReqwestClient) -> Client {
-        Client {
-            inner: Arc::new(ClientRef {
-                id: id.to_owned(),
-                client: client,
-            })
-        }
-    }
-
-   fn apply_standard_headers(&self, request: RequestBuilder) 
-       -> RequestBuilder 
-    {
-        let client_header = header::HeaderValue::from_str(&self.inner.id).unwrap();
-        let accept_header = header::HeaderValue::from_str(ACCEPT).unwrap();
-
-        request
-            .header("Accept", accept_header)
-            .header("Client-ID", client_header)
     }
 }

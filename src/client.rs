@@ -21,6 +21,8 @@ pub enum RatelimitKey {
 type RatelimitMap = HashMap<RatelimitKey, Ratelimit>;
 
 const API_DOMAIN: &'static str = "api.twitch.tv";
+const AUTH_DOMAIN: &'static str = "id.twitch.tv";
+const KRAKEN_ACCEPT: &'static str = "application/vnd.twitchtv.v5+json";
 
 pub trait PaginationTrait {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
@@ -68,6 +70,7 @@ pub struct UnauthClient {
     id: String,
     reqwest: ReqwestClient,
     domain: String,
+    auth_domain: String,
     ratelimits: RatelimitMap,
     version: Version,
 }
@@ -83,6 +86,7 @@ pub trait ClientTrait {
 
     fn id<'a>(&'a self) -> &'a str;
     fn domain<'a>(&'a self) -> &'a str;
+    fn auth_domain<'a>(&'a self) -> &'a str;
     fn ratelimit<'a>(&'a self, key: RatelimitKey) -> Option<&'a Ratelimit>;
 
     fn authenticated(&self) -> bool;
@@ -96,6 +100,10 @@ impl ClientTrait for UnauthClient {
 
     fn domain<'a>(&'a self) -> &'a str {
         &self.domain
+    }
+
+    fn auth_domain<'a>(&'a self) -> &'a str {
+        &self.auth_domain
     }
 
     fn ratelimit<'a>(&'a self, key: RatelimitKey) -> Option<&'a Ratelimit> {
@@ -126,6 +134,14 @@ impl ClientTrait for Client {
         match self.inner.as_ref() {
             Unauth(inner) => inner.domain(),
             Auth(inner) => inner.domain(),
+        }
+    }
+
+    fn auth_domain<'a>(&'a self) -> &'a str {
+        use self::ClientType::*;
+        match self.inner.as_ref() {
+            Unauth(inner) => inner.auth_domain(),
+            Auth(inner) => inner.auth_domain(),
         }
     }
 
@@ -167,6 +183,13 @@ impl ClientTrait for AuthClient {
         match self.previous.inner.as_ref() {
             ClientType::Auth(auth) => auth.domain(),
             ClientType::Unauth(unauth) => unauth.domain(),
+        }
+    }
+
+    fn auth_domain<'a>(&'a self) -> &'a str {
+        match self.previous.inner.as_ref() {
+            ClientType::Auth(auth) => auth.auth_domain(),
+            ClientType::Unauth(unauth) => unauth.auth_domain(),
         }
     }
 
@@ -221,6 +244,7 @@ impl Client {
                     id: id.to_owned(),
                     reqwest: reqwest,
                     domain: API_DOMAIN.to_owned(),
+                    auth_domain: AUTH_DOMAIN.to_owned(),
                     ratelimits: Self::default_ratelimits(),
                     version: version,
             }))
@@ -268,15 +292,15 @@ impl Client {
     fn apply_standard_headers(&self, request: RequestBuilder) 
        -> RequestBuilder 
     {
+        let token = match self.inner.as_ref() {
+            ClientType::Auth(inner) => {
+                let auth = inner.auth_state.lock().expect("Authlock is poisoned");
+                auth.token.as_ref().map(|s| s.to_owned())
+            }
+            ClientType::Unauth(_) => None,
+        };
         match self.version() {
             Version::Helix => {
-                let token = match self.inner.as_ref() {
-                    ClientType::Auth(inner) => {
-                        let auth = inner.auth_state.lock().expect("Authlock is poisoned");
-                        auth.token.as_ref().map(|s| s.to_owned())
-                    }
-                    ClientType::Unauth(_) => None,
-                };
 
                 let client_header = header::HeaderValue::from_str(self.id()).unwrap();
 
@@ -290,6 +314,17 @@ impl Client {
                 request.header("Client-ID", client_header)
             },
             Version::Kraken => {
+                let client_header = header::HeaderValue::from_str(self.id()).unwrap();
+                let accept_header = header::HeaderValue::from_str(KRAKEN_ACCEPT).unwrap();
+
+                let request = request.header("Client-ID", client_header);
+                let request = request.header("Accept", accept_header);
+                let request = if let Some(token) = token {
+                    let value = "OAuth ".to_owned() + &token;
+                    let token_header = header::HeaderValue::from_str(&value).unwrap();
+                    request.header("Authorization", token_header)
+                } else {request};
+
                 request
             }
         }

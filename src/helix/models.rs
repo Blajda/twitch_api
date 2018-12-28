@@ -81,8 +81,8 @@ pub struct User {
     pub description: String,
     #[serde(with = "url_serde")]
     pub profile_image_url: Url,
-    #[serde(with = "url_serde")]
-    pub offline_image_url: Url,
+    //#[serde(with = "url_serde")]
+    pub offline_image_url: String, // Option<Url>,
     pub view_count: u32,
     pub email: Option<String>,
 }

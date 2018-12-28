@@ -1,6 +1,6 @@
 [package]
 name = "twitch_api"
-version = "0.0.32"
+version = "0.0.321"
 authors = ["David Blajda <blajda@hotmail.com>"]
 edition = "2018"
 

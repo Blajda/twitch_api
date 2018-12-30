@@ -68,6 +68,12 @@ fn main() {
             ()
         });
 
+    let u = helix_client
+        .users()
+        .users(vec!(), vec!("freakey"))
+        .map(|res| {println!("{:?}", res); ()})
+        .map_err(|res| {println!("{:?}", res); ()});
+
     /* Prevents tokio from **hanging** 
      * since tokio::run blocks the current thread and waits for the entire runtime
      * to become idle but it will never becomes idle since we keep a reference
@@ -75,6 +81,8 @@ fn main() {
      */
     //std::mem::drop(authed_client);
     tokio::run(
+        u
+        /*
         clip.join(clip2)
             .and_then(|(c1, c2)| {
                 println!("{:?}", c1);
@@ -93,6 +101,7 @@ fn main() {
             })
             .map(|_| ())
             .map_err(|_| ())
+            */
         /*videos*/
     );
 }

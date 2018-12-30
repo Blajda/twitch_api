@@ -1,6 +1,5 @@
 use std::convert::AsRef;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::cmp::{Eq, PartialEq};
 use std::marker::PhantomData;
 
@@ -13,109 +12,105 @@ pub struct User {}
 pub struct Video {}
 pub struct Game {}
 
-pub type UserId = IntegerId<User>;
-pub type ChannelId = UserId;
-pub type VideoId = IntegerId<Video>;
+pub type UserId<'a> = IntegerId<'a, User>;
+pub type ChannelId<'a> = UserId<'a>;
+pub type VideoId<'a> = IntegerId<'a, Video>;
 pub type ClipId = Id;
-pub type GameId = IntegerId<Game>;
+pub type GameId<'a> = IntegerId<'a, Game>;
+
+
+use std::borrow::Cow;
 
 #[derive(Clone)]
-pub struct IntegerId<T> {
-    inner: Arc<IntegerIdRef<T>>
-}
-
-struct IntegerIdRef<T> {
-    id: String,
+pub struct IntegerId<'a, T> {
     int: u32,
-    _type: PhantomData<T>
+    id: Cow<'a, str>,
+    marker: PhantomData<T>
 }
 
-impl<T> IntegerId<T> {
-    pub fn new(id: u32) -> IntegerId<T> {
+impl<T> IntegerId<'static, T> {
+    pub fn new(id: u32) -> IntegerId<'static, T> {
         IntegerId { 
-            inner: Arc::new(IntegerIdRef {
-                id: id.to_string(),
-                int: id,
-                _type: PhantomData,
-            })
+            id: Cow::Owned(id.to_string()),
+            int: id,
+            marker: PhantomData,
         }
     }
 }
 
-impl<T> AsRef<u32> for IntegerId<T> {
-    fn as_ref(&self) -> &u32 {
-        &self.inner.int
+impl<'a, T> IntegerId<'a, T> {
+
+    pub fn from_str(id: &'a str) 
+        -> Result<IntegerId<'a, T>, std::num::ParseIntError> 
+    {
+        let int = id.parse::<u32>()?;
+        Ok(IntegerId {
+            id: Cow::Borrowed(id),
+            int,
+            marker: PhantomData,
+        })
     }
 }
 
-impl<T> AsRef<str> for IntegerId<T> {
+impl<'a, T> AsRef<str> for IntegerId<'a, T> {
     fn as_ref(&self) -> &str {
-        &self.inner.id
+        &self.id
     }
 }
 
 use std::convert::Into;
 
-impl<T> Into<u32> for &IntegerId<T> {
+impl<'a, T> Into<u32> for &'a IntegerId<'a, T> {
     fn into(self) -> u32 {
-        self.inner.int
+        self.int
     }
 }
 
-impl<'a, T> Into<&'a str> for &'a IntegerId<T> {
+impl<'a, T> Into<&'a str> for &'a IntegerId<'a, T> {
     fn into(self) -> &'a str {
-        &self.inner.id
+        &self.id
     }
 }
 
 use std::fmt;
 use std::fmt::{Display, Debug, Formatter};
 
-impl<T> Display for IntegerId<T> { 
+impl<'a, T> Display for IntegerId<'a, T> { 
 
     fn fmt(&self, f: &mut Formatter) -> fmt::Result
     {
-        write!(f, "{}", &self.inner.id)
+        write!(f, "{}", &self.id)
     }
 }
 
-impl<T> Debug for IntegerId<T> {
+impl<'a, T> Debug for IntegerId<'a, T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result
     {
-        write!(f, "{:?}", &self.inner.id)
+        write!(f, "{:?}", &self.id)
     }
 }
 
-impl<T> PartialEq<IntegerId<T>> for IntegerId<T> {
+impl<'a, 'b, T> PartialEq<IntegerId<'a, T>> for IntegerId<'b, T> {
     fn eq(&self, other: &IntegerId<T>) -> bool {
-        self.inner.int == other.inner.int
+        self.int == other.int
     }
 }
-impl<T> Eq for IntegerId<T> {}
+impl<'a, T> Eq for IntegerId<'a, T> {}
 
-impl<T> PartialEq<&str> for IntegerId<T> {
-    fn eq(&self, other: &&str) -> bool {
-        self.inner.id == *other
+impl<'a, T> PartialEq<str> for IntegerId<'a, T> {
+    fn eq(&self, other: &str) -> bool {
+        self.id == *other
     }
 }
 
-impl<T> PartialEq<u32> for IntegerId<T> {
+impl<'a, T> PartialEq<u32> for IntegerId<'a, T> {
     fn eq(&self, other: &u32) -> bool {
-        self.inner.int == *other
-    }
-}
-
-
-impl<T> FromStr for IntegerId<T> {
-    type Err = std::num::ParseIntError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let int = u32::from_str(s)?;
-        Ok(IntegerId::new(int))
+        self.int == *other
     }
 }
 
 use serde::{Deserialize, Deserializer}; 
-impl<'de, T> Deserialize<'de> for IntegerId<T> {
+impl<'de, T> Deserialize<'de> for IntegerId<'static, T> {
 
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de> 

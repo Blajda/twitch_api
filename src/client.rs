@@ -882,6 +882,7 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
                                 err
                             })
                             .map(move |mut response| {
+                                println!("{:?}", response);
                                 if let Some(key) = key_ok {
                                     if let Some(limits) = client_ok.ratelimit(key) {
                                         let mut mut_limits = limits.inner.lock().unwrap();

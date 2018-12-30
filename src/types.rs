@@ -23,7 +23,7 @@ use std::borrow::Cow;
 
 #[derive(Clone)]
 pub struct IntegerId<'a, T> {
-    int: u32,
+    pub int: u32,
     id: Cow<'a, str>,
     marker: PhantomData<T>
 }

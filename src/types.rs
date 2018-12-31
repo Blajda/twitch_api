@@ -99,7 +99,7 @@ impl<'a, T> Eq for IntegerId<'a, T> {}
 
 impl<'a, T> PartialEq<str> for IntegerId<'a, T> {
     fn eq(&self, other: &str) -> bool {
-        self.id == *other
+        self.id.eq(other)
     }
 }
 
@@ -158,12 +158,12 @@ mod tests {
 
         assert_eq!(u1, u2);
         assert_eq!(u1, 1234);
-        assert_eq!(u1, "1234");
+        assert_eq!(&u1, "1234");
 
         let u2 = UserId::from_str("1235").unwrap();
         assert_ne!(u1, u2);
         assert_ne!(u1, 1235);
-        assert_ne!(u1, "1235");
+        assert_ne!(&u1, "1235");
 
         /* This must give a compile error */
         /*

@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use super::types::{UserId, VideoId};
 use crate::client::PaginationTrait;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Clip {
     pub slug: String,
     pub tracking_id: String,
@@ -33,7 +33,7 @@ impl PaginationTrait for Clip {
 }
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Thumbnails {
     #[serde(with = "url_serde")]
     pub medium: Url,
@@ -43,7 +43,7 @@ pub struct Thumbnails {
     pub tiny: Url,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct UserData {
     pub id: UserId<'static>,
     pub name: String,
@@ -53,7 +53,7 @@ pub struct UserData {
     pub logo: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Vod {
     pub id: VideoId<'static>,
     #[serde(with = "url_serde")]

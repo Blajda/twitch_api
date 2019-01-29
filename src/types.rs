@@ -121,6 +121,15 @@ impl<'de, T> Deserialize<'de> for IntegerId<'static, T> {
     }
 }
 
+use serde::{Serialize, Serializer};
+impl<'a, T> Serialize for IntegerId<'a, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.id)
+    }
+}
 
 pub struct Id {
     inner: String

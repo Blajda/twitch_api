@@ -7,7 +7,7 @@ use crate::types::{UserId, VideoId, ChannelId};
 
 use crate::client::PaginationTrait;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DataContainer<T> {
     pub data: Vec<T>
 }
@@ -34,18 +34,18 @@ impl PaginationTrait for Credentials {
     fn cursor<'a>(&'a self) -> Option<&'a str> { None }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PaginationContainer<T> {
     pub data: Vec<T>,
     pub pagination: Option<Cursor>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Cursor {
     pub cursor: Option<String>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Video {
     pub id: VideoId<'static>,
     pub user_id: UserId<'static>,
@@ -70,7 +70,7 @@ pub struct Video {
     pub duration: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct User {
     pub id: UserId<'static>,
     pub login: String,
@@ -87,7 +87,7 @@ pub struct User {
     pub email: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Clip {
     pub id: String,
     #[serde(with = "url_serde")]
@@ -108,7 +108,7 @@ pub struct Clip {
     pub view_count: i32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Credentials {
     pub access_token: String,
     pub refresh_token: Option<String>,

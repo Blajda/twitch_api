@@ -1,13 +1,12 @@
 use super::*;
 use super::models::{DataContainer, User};
-use crate::types::UserId;
+use std::string::ToString;
 
 pub struct Users {}
 type UsersNamespace = Namespace<Users>;
 
 impl UsersNamespace {
-    pub fn users(self, ids: Vec<&UserId>, logins: Vec<&str>) 
-        -> ApiRequest<DataContainer<User>> {
+    pub fn users<S: ToString>(self, ids: &[S], logins: &[S]) -> ApiRequest<DataContainer<User>> {
         use self::users;
         users(self.client, ids, logins)
     }
@@ -19,18 +18,18 @@ impl Client {
     }
 }
 
-pub fn users(
+pub fn users<S: ToString>(
         client: Client,
-        ids: Vec<&UserId>,
-        logins: Vec<&str>,
+        ids: &[S],
+        logins: &[S],
     ) -> ApiRequest<DataContainer<User>> {
         let client = client.inner;
         let url =
             String::from("https://") + client.domain() + &String::from("/helix/users");
 
-        let mut params  = BTreeMap::new();
+        let mut params: BTreeMap<&str, &dyn ToString> = BTreeMap::new();
         for id in ids {
-            params.insert("id", id.as_ref());
+            params.insert("id", id);
         }
 
         for login in logins {
@@ -41,5 +40,5 @@ pub fn users(
 }
 
 pub fn authed_as(client: Client) -> ApiRequest<DataContainer<User>> {
-    users(client, Vec::with_capacity(0), Vec::with_capacity(0))
+    users(client, &[""], &[""])
 }

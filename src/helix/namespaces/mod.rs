@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 pub use super::Client;
-pub use crate::client::{RatelimitKey, ClientTrait, ApiRequest, IterableApiRequest};
+pub use crate::client::{RatelimitKey, ClientTrait, ApiRequest, IterableApiRequest, ParamList};
 pub use std::collections::BTreeMap;
 pub use reqwest::Method;
 pub use super::models;

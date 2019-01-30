@@ -1,12 +1,11 @@
 use super::*;
 use super::models::{DataContainer, Clip};
-use crate::types::ClipId;
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
 
 impl ClipsNamespace {
-    pub fn clip(self, id: &ClipId) -> ApiRequest<DataContainer<Clip>> {
+    pub fn clip<S: ToString>(self, id: &S) -> ApiRequest<DataContainer<Clip>> {
         use self::clip;
         clip(self.client, id)
     }
@@ -19,15 +18,15 @@ impl Client {
 }
 
 
-pub fn clip(client: Client, id: &ClipId) 
+pub fn clip<S: ToString>(client: Client, id: &S) 
     -> ApiRequest<DataContainer<Clip>>
 {
     let client = client.inner;
     let url =
         String::from("https://") + 
-        client.domain() + "/helix/clips" + "?id=" + id.as_ref();
+        client.domain() + "/helix/clips" + "?id=" + &id.to_string();
 
-    let params  = BTreeMap::new();
+    let params : ParamList = BTreeMap::new();
 
     ApiRequest::new(url, params, client, Method::GET, Some(RatelimitKey::Default))
 }

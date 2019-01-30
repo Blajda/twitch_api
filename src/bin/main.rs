@@ -70,7 +70,7 @@ fn main() {
 
     let u = helix_client
         .users()
-        .users(vec!(), vec!("freakey"))
+        .users(&vec!(), &vec!("freakey"))
         .map(|res| {println!("{:?}", res); ()})
         .map_err(|res| {println!("{:?}", res); ()});
 

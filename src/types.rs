@@ -60,11 +60,13 @@ impl<'a, T> AsRef<str> for IntegerId<'a, T> {
 
 use std::convert::Into;
 
+/*
 impl<'a, T> Into<u32> for &'a IntegerId<'a, T> {
     fn into(self) -> u32 {
         self.int
     }
 }
+*/
 
 impl<'a, T> Into<&'a str> for &'a IntegerId<'a, T> {
     fn into(self) -> &'a str {
@@ -103,11 +105,13 @@ impl<'a, T> PartialEq<str> for IntegerId<'a, T> {
     }
 }
 
+/*
 impl<'a, T> PartialEq<u32> for IntegerId<'a, T> {
     fn eq(&self, other: &u32) -> bool {
         self.int == *other
     }
 }
+*/
 
 use serde::{Deserialize, Deserializer}; 
 impl<'de, T> Deserialize<'de> for IntegerId<'static, T> {
@@ -143,6 +147,13 @@ impl Id {
     }
 }
 
+impl Display for Id { 
+
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result
+    {
+        write!(f, "{}", &self.inner)
+    }
+}
 impl AsRef<str> for Id {
 
     fn as_ref(&self) -> &str {

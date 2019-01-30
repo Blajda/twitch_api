@@ -28,6 +28,7 @@ pub trait PaginationTrait {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
 }
 
+pub type ParamList<'a> = BTreeMap<&'a str, &'a dyn ToString>;
 
 #[derive(Clone)]
 pub struct Client {
@@ -408,7 +409,7 @@ struct RequestRef {
 
 impl RequestRef {
     pub fn new(url: String,
-               params: BTreeMap<&str, &str>,
+               params: BTreeMap<&str, &dyn ToString>,
                client: Client,
                method: Method,
                ratelimit: Option<RatelimitKey>,
@@ -416,7 +417,7 @@ impl RequestRef {
     {
         let mut owned_params = BTreeMap::new();
         for (key, value) in params {
-            owned_params.insert(key.to_owned(), value.to_owned());
+            owned_params.insert(key.to_string(), value.to_string());
         }
 
         RequestRef {
@@ -461,7 +462,7 @@ pub struct IterableApiRequest<T> {
 impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
 
     pub fn new(url: String,
-               params: BTreeMap<&str, &str>,
+               params: BTreeMap<&str, &dyn ToString>,
                client: Client,
                method: Method,
                ratelimit: Option<RatelimitKey>,
@@ -480,7 +481,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
 impl<T: DeserializeOwned + PaginationTrait + 'static + Send> IterableApiRequest<T> {
     
     pub fn new(url: String,
-               params: BTreeMap<&str, &str>,
+               params: BTreeMap<&str, &dyn ToString>,
                client: Client,
                method: Method,
                ratelimit: Option<RatelimitKey>

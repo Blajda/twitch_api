@@ -26,7 +26,7 @@ impl AuthNamespace {
     pub fn client_credentials(self, secret: &str) 
         -> ApiRequest<Credentials> {
             use self::client_credentials;
-            client_credentials(self.client, secret)
+            client_credentials(self.client, &secret.to_owned())
         }
 }
 
@@ -37,18 +37,19 @@ impl Client {
 }
 
 //TODO: Implement scopes
-pub fn client_credentials(client: Client, secret: &str)
+pub fn client_credentials<S: ToString>(client: Client, secret: &S)
     -> ApiRequest<Credentials> {
 
     let url =
         String::from("https://") + 
         client.auth_domain() + "/oauth2/token";
 
-    let mut params = BTreeMap::new();
-    params.insert("client_id", client.id());
+    let mut params : BTreeMap<&str, &dyn ToString> = BTreeMap::new();
+    let client_id = &client.id();
+    params.insert("client_id", &client_id);
     params.insert("client_secret", secret);
-    params.insert("grant_type", "client_credentials");
-    params.insert("scope", "");
+    params.insert("grant_type", &"client_credentials");
+    params.insert("scope", &"");
     
     ApiRequest::new(url, params, client.clone(), Method::POST, None)
 }

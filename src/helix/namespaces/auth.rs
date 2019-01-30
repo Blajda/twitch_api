@@ -8,7 +8,7 @@ type AuthNamespace = Namespace<Auth>;
 impl AuthNamespace {
     pub fn client_credentials(self, secret: &str) 
         -> ApiRequest<Credentials> {
-            auth::client_credentials(self.client.inner, secret)
+            auth::client_credentials(self.client.inner, &secret)
         }
 }
 

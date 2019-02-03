@@ -1,4 +1,3 @@
-use futures::sync::oneshot;
 use futures::Future;
 use futures::future::{Shared, SharedError};
 use crate::error::ConditionError;

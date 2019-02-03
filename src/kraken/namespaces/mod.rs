@@ -3,6 +3,7 @@ pub use super::models;
 pub use super::Client;
 
 pub mod clips;
+pub mod users;
 
 pub struct Namespace<T> {
     client: Client,

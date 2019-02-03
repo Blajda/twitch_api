@@ -177,12 +177,12 @@ mod tests {
         let u2 = u2.unwrap();
 
         assert_eq!(u1, u2);
-        assert_eq!(u1, 1234);
+        //assert_eq!(u1, 1234);
         assert_eq!(&u1, "1234");
 
         let u2 = UserId::from_str("1235").unwrap();
         assert_ne!(u1, u2);
-        assert_ne!(u1, 1235);
+        //assert_ne!(u1, 1235);
         assert_ne!(&u1, "1235");
 
         /* This must give a compile error */

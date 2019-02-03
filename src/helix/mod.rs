@@ -1,24 +1,12 @@
+use crate::client::Client as GenericClient;
+use crate::client::{Version, ClientConfig};
+use crate::client::ClientTrait;
+
+use crate::client::{HelixScope, Scope};
+
 pub mod models;
 pub mod namespaces;
 
-use crate::client::Client as GenericClient;
-use crate::client::Version;
-use crate::client::ClientTrait;
-
-/*
-#[derive(PartialEq, Hash, Eq, Clone)]
-pub enum Scope {
-    AnalyticsReadExtensions,
-    AnalyticsReadGames,
-    BitsRead,
-    ClipsEdit,
-    UserEdit,
-    UserEditBroadcast,
-    UserReadBroadcast,
-    UserReadEmail,
-}
-*/
-use crate::client::Scope;
 
 #[derive(Clone)]
 pub struct Client {
@@ -27,13 +15,31 @@ pub struct Client {
 
 impl Client {
     pub fn new(id: &str) -> Client {
+        let config = ClientConfig::default();
         Client {
-            inner: GenericClient::new(id, Version::Helix)
+            inner: GenericClient::new(id, config, Version::Helix)
+        }
+    }
+
+    pub fn new_with_config(id: &str, config: ClientConfig) -> Client {
+        Client {
+            inner: GenericClient::new(id, config, Version::Helix)
         }
     }
 
     pub fn authenticate(self, secret: &str) -> AuthClientBuilder {
         AuthClientBuilder::new(self, secret)
+    }
+
+    pub fn id<'a>(&'a self) -> &'a str { &self.inner.id() }
+    pub fn domain<'a>(&'a self) -> &'a str { &self.inner.domain() }
+    pub fn auth_domain<'a>(&'a self) -> &'a str { &self.inner.auth_domain() }
+    pub fn authenticated(&self) -> bool { self.inner.authenticated() }
+
+    pub fn scopes(&self) -> Vec<HelixScope> {
+        self.inner.scopes().into_iter().filter_map(|item| {
+            if let Scope::Helix(scope) = item { Some(scope) } else { None }
+        }).collect()
     }
 }
 
@@ -57,15 +63,15 @@ impl AuthClientBuilder {
         }
     }
 
-    pub fn scope(self, scope: Scope) -> AuthClientBuilder {
+    pub fn scope(self, scope: HelixScope) -> AuthClientBuilder {
         AuthClientBuilder {
-            inner: self.inner.scope(scope)
+            inner: self.inner.scope(Scope::Helix(scope))
         }
     }
 
-    pub fn scopes(self, scopes: Vec<Scope>) -> AuthClientBuilder {
+    pub fn scopes(self, scopes: Vec<HelixScope>) -> AuthClientBuilder {
         AuthClientBuilder {
-            inner: self.inner.scopes(scopes)
+            inner: self.inner.scopes(scopes.into_iter().map(|e| Scope::Helix(e)).collect())
         }
     }
 

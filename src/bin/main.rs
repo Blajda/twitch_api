@@ -3,22 +3,28 @@ extern crate futures;
 extern crate serde;
 extern crate tokio;
 extern crate twitch_api;
+extern crate env_logger;
 
 use futures::future::Future;
-use futures::Stream;
 use std::env;
 use twitch_api::HelixClient;
 use twitch_api::KrakenClient;
-use std::str::FromStr;
-
-use twitch_api::types::UserId;
-use twitch_api::types::ClipId;
+use twitch_api::ClientConfig;
+use twitch_api::client::RatelimitMap;
 
 
 fn main() {
     dotenv::dotenv().unwrap();
+    env_logger::init();
+
+    let config = ClientConfig {
+        max_retrys: 0,
+        ratelimits: RatelimitMap::empty(),
+        ..ClientConfig::default()
+    };
+
     let client_id = &env::var("TWITCH_API").unwrap();
-    let helix_client =  HelixClient::new(client_id);
+    let helix_client =  HelixClient::new_with_config(client_id, config);
     let kraken_client = KrakenClient::new(client_id);
 
         /*
@@ -26,13 +32,15 @@ fn main() {
         .build();
         */
 
+/*
     let clip = helix_client
         .clips()
-        .clip(&ClipId::new("EnergeticApatheticTarsierThisIsSparta"))
+        .clip(&"EnergeticApatheticTarsierThisIsSparta")
         .map_err(|err| {
             println!("{:?}", err); 
             ()
         });
+        */
     /*
 
     let clip2 = authed_client
@@ -60,6 +68,7 @@ fn main() {
         */
 
 
+/*
     let clip2 = kraken_client
         .clips()
         .clip(&"EnergeticApatheticTarsierThisIsSparta")
@@ -67,12 +76,20 @@ fn main() {
             println!("{:?}", err); 
             ()
         });
+*/
 
-    let u = helix_client
-        .users()
-        .users(&vec!(), &vec!("freakey"))
-        .map(|res| {println!("{:?}", res); ()})
-        .map_err(|res| {println!("{:?}", res); ()});
+
+    let f = futures::future::ok(1).and_then(move |_| {
+        for i in 0..80 {
+            let u = helix_client
+                .users()
+                .users(&vec!(), &vec!("freakey"))
+                .map(|res| {println!("{:?}", res); ()})
+                .map_err(|res| {println!("{:?}", res); ()});
+                tokio::spawn(u);
+        }
+        Ok(())
+    });
 
     /* Prevents tokio from **hanging** 
      * since tokio::run blocks the current thread and waits for the entire runtime
@@ -81,7 +98,7 @@ fn main() {
      */
     //std::mem::drop(authed_client);
     tokio::run(
-        u
+        f
         /*
         clip.join(clip2)
             .and_then(|(c1, c2)| {

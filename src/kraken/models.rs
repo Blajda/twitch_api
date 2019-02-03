@@ -8,6 +8,20 @@ use super::types::{UserId, VideoId};
 use crate::client::PaginationTrait;
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct User {
+    pub _id: String,
+    pub bio: String,
+    pub created_at: DateTime<Utc>,
+    pub display_name: String,
+    #[serde(with = "url_serde")]
+    pub logo: Url,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub user_type: String,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Clip {
     pub slug: String,
     pub tracking_id: String,
@@ -29,6 +43,10 @@ pub struct Clip {
 }
 
 impl PaginationTrait for Clip {
+    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
+}
+
+impl PaginationTrait for User {
     fn cursor<'a>(&'a self) -> Option<&'a str> { None }
 }
 

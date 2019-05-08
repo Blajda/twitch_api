@@ -280,7 +280,7 @@ impl Default for RatelimitMap {
 
     fn default() -> Self {
         let mut limits = HashMap::new();
-        limits.insert(RatelimitKey::Default, Ratelimit::new(30, "Ratelimit-Limit", "Ratelimit-Remaining", "Ratelimit-Reset"));
+        limits.insert(RatelimitKey::Default, Ratelimit::new(30, "ratelimit-limit", "ratelimit-remaining", "ratelimit-reset"));
         RatelimitMap {
             inner: limits
         }
@@ -1109,6 +1109,7 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
                     if let Some(limits) = limits {
                         let mut mut_limits = limits.inner.lock().unwrap();
                         mut_limits.inflight = mut_limits.inflight + 1;
+                        trace!("[TWITCH_API] (limit, remaining, inflight) ({:?}, {:?}, {:?})", mut_limits.limit, mut_limits.remaining, mut_limits.inflight);
                     }
 
                     let mut builder = reqwest.request(self.inner.method.clone(), &self.inner.url);

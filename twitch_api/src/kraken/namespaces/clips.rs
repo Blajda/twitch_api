@@ -10,7 +10,6 @@ type ClipsNamespace = Namespace<Clips>;
 
 impl ClipsNamespace {
     pub fn clip(self, id: &str) -> ApiRequest<Clip> {
-        use self::clip;
         clip(self.client, id)
     }
 }

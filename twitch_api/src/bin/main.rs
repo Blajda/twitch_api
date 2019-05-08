@@ -19,13 +19,13 @@ fn main() {
 
     let config = ClientConfig {
         max_retrys: 0,
-        ratelimits: RatelimitMap::empty(),
+        ratelimits: RatelimitMap::default(),
         ..ClientConfig::default()
     };
 
     let client_id = &env::var("TWITCH_API").unwrap();
     let helix_client =  HelixClient::new_with_config(client_id, config);
-    let kraken_client = KrakenClient::new(client_id);
+    let _kraken_client = KrakenClient::new(client_id);
 
         /*
         .authenticate(&env::var("TWITCH_SECRET").unwrap())
@@ -80,7 +80,7 @@ fn main() {
 
 
     let f = futures::future::ok(1).and_then(move |_| {
-        for i in 0..80 {
+        for _i in 0..80 {
             let u = helix_client
                 .users()
                 .users(&vec!(), &vec!("freakey"))

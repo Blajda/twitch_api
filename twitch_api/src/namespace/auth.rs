@@ -25,7 +25,6 @@ type AuthNamespace = Namespace<Auth>;
 impl AuthNamespace {
     pub fn client_credentials(self, secret: &str) 
         -> ApiRequest<Credentials> {
-            use self::client_credentials;
             client_credentials(self.client, &secret.to_owned())
         }
 }

@@ -7,7 +7,6 @@ type UsersNamespace = Namespace<Users>;
 
 impl UsersNamespace {
     pub fn users<S: ToString>(self, ids: &[S], logins: &[S]) -> ApiRequest<DataContainer<User>> {
-        use self::users;
         users(self.client, ids, logins)
     }
 }

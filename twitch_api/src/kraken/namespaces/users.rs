@@ -10,7 +10,6 @@ type UsersNamespace = Namespace<Users>;
 
 impl UsersNamespace {
     pub fn by_id(self, id: &str) -> ApiRequest<User> {
-        use self::by_id;
         by_id(self.client, id)
     }
 }

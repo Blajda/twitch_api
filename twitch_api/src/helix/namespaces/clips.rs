@@ -6,7 +6,6 @@ type ClipsNamespace = Namespace<Clips>;
 
 impl ClipsNamespace {
     pub fn clip<S: ToString>(self, id: &S) -> ApiRequest<DataContainer<Clip>> {
-        use self::clip;
         clip(self.client, id)
     }
 }

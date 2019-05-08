@@ -1,7 +1,7 @@
 use super::waiter::Waiter;
 use futures::prelude::*;
 use std::sync::{Arc, Mutex};
-use futures::future::{Shared, SharedError};
+use futures::future::Shared;
 
 use crate::error::ConditionError;
 

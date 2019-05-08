@@ -13,12 +13,10 @@ use futures::Poll;
 use serde::de::DeserializeOwned;
 use futures::Async;
 use futures::try_ready;
-use serde_json::Value;
 use futures::future::Either;
 
 use crate::error::ConditionError;
 
-pub use super::types;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum RatelimitKey {
@@ -490,7 +488,6 @@ struct AuthStateRef {
 
 impl Client {
     pub fn new(id: &str, config: ClientConfig, version: Version) -> Client {
-        let client = ReqwestClient::new();
         Client {
             inner: Arc::new(
                 ClientType::Unauth(UnauthClient {
@@ -538,11 +535,11 @@ impl Client {
     }
 
     /* The 'bottom' client must always be a client that is not authorized.
-     * This which allows for calls to Auth endpoints using the same control flow
+     * This allows for calls to Auth endpoints using the same control flow
      * as other requests.
      *
-     * Clients created with 'new' are bottom clients and calls
-     * to authenticate stack an authed client on top
+     * Clients created with 'new' are bottom clients. Calls to
+     * to 'authenticate' stack an authed client on top
      */
     fn get_bottom_client(&self) -> Client {
         match self.inner.as_ref() {
@@ -963,8 +960,8 @@ impl Waiter for RatelimitWaiter {
     }
 }
 
-/* Macro ripped directly from try_ready and simplies retries if any error occurs
- * and there are remaning retry attempt
+/* Macro ripped directly from try_ready will retry the connection if any error occurs
+ * and there are remaning attempts
  */
 #[macro_export]
 macro_rules! retry_ready {
@@ -1129,7 +1126,7 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
                     let client_cloned = client.clone();
                     /*
                     Allow testing by capturing the request and returning a predetermined response
-                    If testing is set in the client config then `Pending` is captured and saved and a future::ok(Resposne) is returned.
+                    If testing is set in the client config then `Pending` is captured and saved and a future::ok(Response) is returned.
                     */
                     let f = 
                         client.send(builder)

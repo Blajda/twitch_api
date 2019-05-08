@@ -11,7 +11,6 @@ extern crate twitch_types;
 
 pub mod helix;
 pub mod kraken;
-pub mod types;
 pub mod error;
 mod sync;
 pub mod namespace;

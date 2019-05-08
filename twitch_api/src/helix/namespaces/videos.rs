@@ -1,7 +1,5 @@
 use super::*;
 use super::models::{PaginationContainer, Video};
-use crate::types::{UserId, GameId, VideoId};
-
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
@@ -9,19 +7,16 @@ type VideosNamespace = Namespace<Videos>;
 impl VideosNamespace {
     pub fn by_id<S: ToString>(self, ids: &[S])
         -> IterableApiRequest<PaginationContainer<Video>> {
-        use self::by_id;
         by_id(self.client, ids)
     }
 
     pub fn by_user<S: ToString>(self, user_id: &S)
         -> IterableApiRequest<PaginationContainer<Video>> {
-        use self::by_user;
         by_user(self.client, user_id)
     }
 
     pub fn for_game<S: ToString>(self, game_id: &S) 
         -> IterableApiRequest<PaginationContainer<Video>> {
-        use self::for_game;
         for_game(self.client, game_id)
     }
 }

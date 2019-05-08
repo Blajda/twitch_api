@@ -1,7 +1,6 @@
 use crate::client::Client as GenericClient;
 use crate::client::{Version, ClientConfig};
 use crate::client::ClientTrait;
-pub use super::types;
 
 use crate::client::{KrakenScope, Scope};
 

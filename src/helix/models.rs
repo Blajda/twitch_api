@@ -47,8 +47,8 @@ pub struct Cursor {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Video {
-    pub id: VideoId<'static>,
-    pub user_id: UserId<'static>,
+    pub id: VideoId,
+    pub user_id: UserId,
     pub user_name: String,
     pub title: String,
     pub description: String,
@@ -72,7 +72,7 @@ pub struct Video {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct User {
-    pub id: UserId<'static>,
+    pub id: UserId,
     pub login: String,
     pub display_name: String,
     #[serde(rename = "type")]
@@ -94,11 +94,11 @@ pub struct Clip {
     pub url: Url,
     #[serde(with = "url_serde")]
     pub embed_url: Url,
-    pub broadcaster_id: ChannelId<'static>,
+    pub broadcaster_id: ChannelId,
     pub broadcaster_name: String,
-    pub creator_id: UserId<'static>,
+    pub creator_id: UserId,
     pub creator_name: String,
-    pub video_id: VideoId<'static>,
+    pub video_id: VideoId,
     pub game_id: String,
     pub language: String,
     pub title: String,

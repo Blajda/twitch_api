@@ -1,163 +1,104 @@
 use std::convert::AsRef;
-use std::str::FromStr;
 use std::cmp::{Eq, PartialEq};
 use std::marker::PhantomData;
+use std::convert::Into;
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 
 /* Used for Id's that can be interpreted as integers but aren't returned as 
  * an int by Twitch's API. (Maybe to allow a quick switch to a different representation 
  * without breaking the json schema?)
+ *
+ * Don't Implement Display for StringID since it would allow comparisions between
+ * different StringId types
  */
 
 pub struct User {}
 pub struct Video {}
 pub struct Game {}
+pub struct Clip {}
 
-pub type UserId<'a> = IntegerId<'a, User>;
-pub type ChannelId<'a> = UserId<'a>;
-pub type VideoId<'a> = IntegerId<'a, Video>;
-pub type ClipId = Id;
-pub type GameId<'a> = IntegerId<'a, Game>;
-
-
-use std::borrow::Cow;
+pub type UserId = StringId<User>;
+pub type ChannelId = UserId;
+pub type VideoId = StringId<Video>;
+pub type ClipId = StringId<Clip>;
+pub type GameId = StringId<Game>;
 
 #[derive(Clone)]
-pub struct IntegerId<'a, T> {
-    pub int: u32,
-    id: Cow<'a, str>,
+pub struct StringId<T> {
+    id: String,
     marker: PhantomData<T>
 }
 
-impl<T> IntegerId<'static, T> {
-    pub fn new(id: u32) -> IntegerId<'static, T> {
-        IntegerId { 
-            id: Cow::Owned(id.to_string()),
-            int: id,
+impl<T> StringId<T> {
+    pub fn new(id: String) -> StringId<T> {
+        StringId { 
+            id: id,
             marker: PhantomData,
         }
     }
 }
 
-impl<'a, T> IntegerId<'a, T> {
+impl<'a, T> StringId<T> {
 
     pub fn from_str(id: &'a str) 
-        -> Result<IntegerId<'a, T>, std::num::ParseIntError> 
+        -> Result<StringId<T>, !> 
     {
-        let int = id.parse::<u32>()?;
-        Ok(IntegerId {
-            id: Cow::Borrowed(id),
-            int,
-            marker: PhantomData,
-        })
+        Ok(StringId::new(id.to_owned()))
     }
 }
 
-impl<'a, T> AsRef<str> for IntegerId<'a, T> {
+impl<'a, T> AsRef<str> for StringId<T> {
     fn as_ref(&self) -> &str {
         &self.id
     }
 }
 
-use std::convert::Into;
 
-/*
-impl<'a, T> Into<u32> for &'a IntegerId<'a, T> {
-    fn into(self) -> u32 {
-        self.int
-    }
-}
-*/
-
-impl<'a, T> Into<&'a str> for &'a IntegerId<'a, T> {
+impl<'a, T> Into<&'a str> for &'a StringId<T> {
     fn into(self) -> &'a str {
         &self.id
     }
 }
 
-use std::fmt;
-use std::fmt::{Display, Debug, Formatter};
-
-impl<'a, T> Display for IntegerId<'a, T> { 
-
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result
-    {
-        write!(f, "{}", &self.id)
-    }
-}
-
-impl<'a, T> Debug for IntegerId<'a, T> {
+impl<T> Debug for StringId<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result
     {
         write!(f, "{:?}", &self.id)
     }
 }
 
-impl<'a, 'b, T> PartialEq<IntegerId<'a, T>> for IntegerId<'b, T> {
-    fn eq(&self, other: &IntegerId<T>) -> bool {
-        self.int == other.int
+impl<T> PartialEq<StringId<T>> for StringId<T> {
+    fn eq(&self, other: &StringId<T>) -> bool {
+        self.id == other.id
     }
 }
-impl<'a, T> Eq for IntegerId<'a, T> {}
+impl<T> Eq for StringId<T> {}
 
-impl<'a, T> PartialEq<str> for IntegerId<'a, T> {
+impl<T> PartialEq<str> for StringId<T> {
     fn eq(&self, other: &str) -> bool {
         self.id.eq(other)
     }
 }
 
-/*
-impl<'a, T> PartialEq<u32> for IntegerId<'a, T> {
-    fn eq(&self, other: &u32) -> bool {
-        self.int == *other
-    }
-}
-*/
-
 use serde::{Deserialize, Deserializer}; 
-impl<'de, T> Deserialize<'de> for IntegerId<'static, T> {
+impl<'de, T> Deserialize<'de> for StringId<T> {
 
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de> 
     {
         let id = String::deserialize(deserializer)?;
-        let int = (&id).parse::<u32>().map_err(serde::de::Error::custom)?;
-        Ok(IntegerId::new(int))
+        Ok(StringId::new(id))
     }
 }
 
 use serde::{Serialize, Serializer};
-impl<'a, T> Serialize for IntegerId<'a, T> {
+impl<'a, T> Serialize for StringId<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         serializer.serialize_str(&self.id)
-    }
-}
-
-pub struct Id {
-    inner: String
-}
-
-impl Id {
-    pub fn new(id: &str) -> Id {
-        Id {
-            inner: id.to_owned(),
-        }
-    }
-}
-
-impl Display for Id { 
-
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result
-    {
-        write!(f, "{}", &self.inner)
-    }
-}
-impl AsRef<str> for Id {
-
-    fn as_ref(&self) -> &str {
-        &self.inner
     }
 }
 
@@ -177,12 +118,10 @@ mod tests {
         let u2 = u2.unwrap();
 
         assert_eq!(u1, u2);
-        //assert_eq!(u1, 1234);
         assert_eq!(&u1, "1234");
 
         let u2 = UserId::from_str("1235").unwrap();
         assert_ne!(u1, u2);
-        //assert_ne!(u1, 1235);
         assert_ne!(&u1, "1235");
 
         /* This must give a compile error */

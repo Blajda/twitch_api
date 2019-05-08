@@ -63,7 +63,7 @@ pub struct Thumbnails {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserData {
-    pub id: UserId<'static>,
+    pub id: UserId,
     pub name: String,
     pub display_name: String,
     #[serde(with = "url_serde")]
@@ -73,7 +73,7 @@ pub struct UserData {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Vod {
-    pub id: VideoId<'static>,
+    pub id: VideoId,
     #[serde(with = "url_serde")]
     pub url: Url,
 }

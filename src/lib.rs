@@ -1,5 +1,5 @@
 #![recursion_limit="128"]
-#![feature(try_from)]
+#![feature(never_type)]
 extern crate futures;
 extern crate reqwest;
 extern crate serde;

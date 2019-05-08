@@ -7,6 +7,7 @@ extern crate chrono;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
+extern crate twitch_types;
 
 pub mod helix;
 pub mod kraken;

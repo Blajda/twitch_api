@@ -3,7 +3,7 @@ extern crate chrono;
 
 use url::Url;
 use chrono::{DateTime, Utc};
-use crate::types::{UserId, VideoId, ChannelId};
+use twitch_types::{UserId, VideoId, ChannelId};
 
 use crate::client::PaginationTrait;
 

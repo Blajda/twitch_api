@@ -4,7 +4,7 @@ extern crate url;
 
 use url::Url;
 use chrono::{DateTime, Utc};
-use super::types::{UserId, VideoId};
+use twitch_types::{UserId, VideoId};
 use crate::client::PaginationTrait;
 
 #[derive(Debug, Deserialize, Serialize)]

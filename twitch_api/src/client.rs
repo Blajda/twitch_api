@@ -14,6 +14,7 @@ use serde::de::DeserializeOwned;
 use futures::Async;
 use futures::try_ready;
 use futures::future::Either;
+use serde_json::Value;
 
 use crate::error::ConditionError;
 

@@ -8,14 +8,9 @@ extern crate http;
 pub mod common;
 
 use twitch_api::KrakenClient;
-use twitch_api::{ClientConfig, TestConfig};
-use twitch_api::client::ClientTrait;
-use twitch_api::error::Error;
 use twitch_api::client::KrakenScope;
 
 use tokio::runtime::current_thread::Runtime;
-use reqwest::r#async::Response;
-use http::response::Builder;
 
 use crate::common::*;
 

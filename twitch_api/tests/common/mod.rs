@@ -5,7 +5,6 @@ extern crate reqwest;
 extern crate url;
 extern crate http;
 
-use tokio::runtime::current_thread::Runtime;
 use twitch_api::{ClientConfig, TestConfig};
 use reqwest::r#async::Response;
 use http::response::Builder;

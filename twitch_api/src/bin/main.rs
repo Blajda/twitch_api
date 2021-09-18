@@ -11,6 +11,7 @@ use twitch_api::HelixClient;
 use twitch_api::KrakenClient;
 use twitch_api::ClientConfig;
 use twitch_api::client::RatelimitMap;
+use twitch_types::UserId;
 
 
 fn main() {
@@ -80,10 +81,11 @@ fn main() {
 
 
     let f = futures::future::ok(1).and_then(move |_| {
+        let id = UserId::from_str("1").unwrap();
         for _i in 0..80 {
             let u = helix_client
                 .users()
-                .users(&vec!(), &vec!("freakey"))
+                .users(&vec!(id.as_ref()), &vec!("freakey"))
                 .map(|res| {println!("{:?}", res); ()})
                 .map_err(|res| {println!("{:?}", res); ()});
                 tokio::spawn(u);

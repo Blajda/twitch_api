@@ -11,7 +11,7 @@ pub struct Barrier {
 }
 
 struct BarrierRef {
-    condition: Option<Shared<Box<Future<Item=(), Error=ConditionError> + Send>>>
+    condition: Option<Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>>>
 }
 
 impl Barrier {
@@ -26,7 +26,7 @@ impl Barrier {
     }
 
     pub fn condition(&self, waiter: &impl Waiter) 
-        -> Shared<Box<Future<Item=(), Error=ConditionError> + Send>> 
+        -> Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>> 
     {
         let mut mut_barrier = self.inner.lock().unwrap();
         let maybe_condition = &mut mut_barrier.condition;

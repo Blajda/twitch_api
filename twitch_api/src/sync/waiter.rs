@@ -8,5 +8,5 @@ pub trait Waiter {
 
     fn blocked(&self) -> bool;
     fn condition(&self) 
-        -> Shared<Box<Future<Item=(), Error=ConditionError> + Send>>;
+        -> Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>>;
 }

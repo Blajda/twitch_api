@@ -17,6 +17,9 @@ impl Client {
     }
 }
 
+/**
+ * https://dev.twitch.tv/docs/api/reference#get-users
+ */
 pub fn users<S: ToString>(
         client: Client,
         ids: &[S],
@@ -37,6 +40,11 @@ pub fn users<S: ToString>(
         ApiRequest::new(url, params, client, Method::GET, Some(RatelimitKey::Default))
 }
 
+/**
+ * Obtain the user using the Bearer Token
+ * 
+ * https://dev.twitch.tv/docs/api/reference#get-users
+ */
 pub fn authed_as(client: Client) -> ApiRequest<DataContainer<User>> {
     users(client, &[""], &[""])
 }

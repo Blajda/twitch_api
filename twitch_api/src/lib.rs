@@ -17,4 +17,4 @@ pub mod client;
 pub mod models;
 
 pub use self::helix::Client as HelixClient;
-pub use self::client::{ClientConfig, TestConfig};
+pub use self::client::{ClientConfig};

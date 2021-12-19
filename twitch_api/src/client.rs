@@ -3,8 +3,7 @@ use std::convert::TryFrom;
 use futures::future::Future;
 use std::sync::{Arc, Mutex};
 use reqwest::r#async::Client as ReqwestClient;
-use reqwest::Error as ReqwestError;
-use reqwest::r#async::{Request, Response};
+use reqwest::r#async::{Response};
 
 use std::collections::{HashSet, HashMap};
 use super::error::Error;
@@ -14,7 +13,6 @@ use serde::de::DeserializeOwned;
 use futures::Async;
 use futures::try_ready;
 use futures::future::Either;
-use serde_json::Value;
 
 use crate::error::ConditionError;
 
@@ -146,40 +144,6 @@ impl Client {
     }
 }
 
-pub struct TestConfigRef {
-    pub requests: Vec<Result<Request, ReqwestError>>,
-    pub responses: Vec<Response>,
-}
-
-#[derive(Clone)]
-pub struct TestConfig {
-    pub inner: Arc<Mutex<TestConfigRef>>
-}
-
-impl TestConfig {
-
-    pub fn push_response(&self, response: Response) {
-        let inner = &mut self.inner.lock().unwrap();
-        inner.responses.push(response);
-    }
-}
-
-impl Default for TestConfig {
-
-    fn default() -> Self {
-        TestConfig {
-            inner: Arc::new(
-                Mutex::new(
-                    TestConfigRef {
-                        requests: Vec::new(),
-                        responses: Vec::new(),
-                    }
-                )
-            )
-        }
-    }
-}
-
 enum ClientType {
     Unauth(UnauthClient),
     Auth(AuthClient),
@@ -192,7 +156,6 @@ pub struct ClientConfig {
     pub auth_base_uri: String,
     pub ratelimits: RatelimitMap,
     pub max_retrys: u32,
-    pub test_config: Option<TestConfig>,
 }
 
 impl Default for RatelimitMap {
@@ -226,7 +189,6 @@ impl Default for ClientConfig {
             auth_base_uri: AUTH_BASE_URI.to_owned(),
             ratelimits,
             max_retrys: 1,
-            test_config: None,
         }
     }
 }
@@ -442,15 +404,7 @@ impl Client {
     }
 
     fn send(&self, builder: RequestBuilder) -> Box<dyn Future<Item=Response, Error=reqwest::Error> + Send> {
-        if let Some(test_config) = &self.config().test_config {
-            let config: &mut TestConfigRef = &mut test_config.inner.lock().expect("Test Config poisoned");
-            println!("{}", config.responses.len());
-            config.requests.push(builder.build());
-            let res = config.responses.pop().expect("Ran out of test responses!");
-            Box::new(futures::future::ok(res))
-        } else {
-            Box::new(builder.send())
-        }
+        Box::new(builder.send())
     }
 
     /* The 'bottom' client must always be a client that is not authorized.
@@ -751,7 +705,7 @@ use crate::sync::waiter::Waiter;
 
 struct WaiterState<W: Waiter> {
     polling: bool,
-    shared_future: Option<(Shared<Box<Future<Item=(), Error=ConditionError> + Send>>)>,
+    shared_future: Option<Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>>>,
     waiter: W,
     barrier: Barrier,
 }
@@ -810,7 +764,7 @@ impl Waiter for AuthWaiter {
     }
 
     fn condition(&self) ->
-        Shared<Box<Future<Item=(), Error=ConditionError> + Send>> {
+        Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>> {
         /* If a secret is not provided then just immediately return */
         let secret = self.waiter.secret().unwrap();
         let bottom_client = self.waiter.get_bottom_client();
@@ -847,7 +801,7 @@ impl Waiter for RatelimitWaiter {
     }
 
     fn condition(&self)
-        -> Shared<Box<Future<Item=(), Error=ConditionError> + Send>> 
+        -> Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>> 
     {
         /*TODO: Really basic for now*/
         use futures_timer::Delay;
@@ -906,7 +860,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> Stream for Iterable
                             });
                 },
                 IterableApiRequestState::PollInner(request) => {
-                    let f = request as &mut Future<Item=Self::Item, Error=Self::Error>;
+                    let f = request as &mut dyn Future<Item=Self::Item, Error=Self::Error>;
                     match f.poll() {
                         Err(err) => {
                             self.state = IterableApiRequestState::Finished;

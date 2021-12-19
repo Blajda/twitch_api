@@ -35,9 +35,12 @@ impl Client {
     }
 }
 
-//TODO: Implement scopes
+/**
+ * https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#oauth-client-credentials-flow
+*/
 pub fn client_credentials<S: ToString>(client: Client, secret: &S)
     -> ApiRequest<Credentials> {
+    //TODO: Implement scopes
 
     let url = client.auth_base_uri().to_owned() + "/oauth2/token";
 

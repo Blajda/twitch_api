@@ -32,8 +32,8 @@ impl Client {
     }
 
     pub fn id<'a>(&'a self) -> &'a str { &self.inner.id() }
-    pub fn domain<'a>(&'a self) -> &'a str { &self.inner.domain() }
-    pub fn auth_domain<'a>(&'a self) -> &'a str { &self.inner.auth_domain() }
+    pub fn domain<'a>(&'a self) -> &'a str { &self.inner.api_base_uri() }
+    pub fn auth_domain<'a>(&'a self) -> &'a str { &self.inner.auth_base_uri() }
     pub fn authenticated(&self) -> bool { self.inner.authenticated() }
 
     pub fn scopes(&self) -> Vec<HelixScope> {

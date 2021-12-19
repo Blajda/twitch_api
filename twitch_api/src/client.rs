@@ -28,8 +28,8 @@ pub struct RatelimitMap {
     pub inner: HashMap<RatelimitKey, Ratelimit>
 }
 
-const API_DOMAIN: &'static str = "api.twitch.tv";
-const AUTH_DOMAIN: &'static str = "id.twitch.tv";
+const API_BASE_URI: &'static str = "https://api.twitch.tv";
+const AUTH_BASE_URI: &'static str = "https://id.twitch.tv";
 
 pub trait PaginationTrait {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
@@ -188,8 +188,8 @@ enum ClientType {
 
 pub struct ClientConfig {
     pub reqwest: ReqwestClient,
-    pub domain:  String,
-    pub auth_domain: String,
+    pub api_base_uri:  String,
+    pub auth_base_uri: String,
     pub ratelimits: RatelimitMap,
     pub max_retrys: u32,
     pub test_config: Option<TestConfig>,
@@ -222,8 +222,8 @@ impl Default for ClientConfig {
 
         ClientConfig {
             reqwest,
-            domain: API_DOMAIN.to_owned(),
-            auth_domain: AUTH_DOMAIN.to_owned(),
+            api_base_uri: API_BASE_URI.to_owned(),
+            auth_base_uri: AUTH_BASE_URI.to_owned(),
             ratelimits,
             max_retrys: 1,
             test_config: None,
@@ -248,8 +248,8 @@ pub trait ClientTrait {
 
     fn id<'a>(&'a self) -> &'a str;
     fn config<'a>(&'a self) -> &'a ClientConfig;
-    fn domain<'a>(&'a self) -> &'a str;
-    fn auth_domain<'a>(&'a self) -> &'a str;
+    fn api_base_uri<'a>(&'a self) -> &'a str;
+    fn auth_base_uri<'a>(&'a self) -> &'a str;
     fn ratelimit<'a>(&'a self, key: RatelimitKey) -> Option<&'a Ratelimit>;
 
     fn authenticated(&self) -> bool;
@@ -261,12 +261,12 @@ impl ClientTrait for UnauthClient {
         &self.id
     }
 
-    fn domain<'a>(&'a self) -> &'a str {
-        &self.config.domain
+    fn api_base_uri<'a>(&'a self) -> &'a str {
+        &self.config.api_base_uri
     }
 
-    fn auth_domain<'a>(&'a self) -> &'a str {
-        &self.config.auth_domain
+    fn auth_base_uri<'a>(&'a self) -> &'a str {
+        &self.config.auth_base_uri
     }
 
     fn ratelimit<'a>(&'a self, key: RatelimitKey) -> Option<&'a Ratelimit> {
@@ -296,19 +296,19 @@ impl ClientTrait for Client {
         }
     }
 
-    fn domain<'a>(&'a self) -> &'a str {
+    fn api_base_uri<'a>(&'a self) -> &'a str {
         use self::ClientType::*;
         match self.inner.as_ref() {
-            Unauth(inner) => inner.domain(),
-            Auth(inner) => inner.domain(),
+            Unauth(inner) => inner.api_base_uri(),
+            Auth(inner) => inner.api_base_uri(),
         }
     }
 
-    fn auth_domain<'a>(&'a self) -> &'a str {
+    fn auth_base_uri<'a>(&'a self) -> &'a str {
         use self::ClientType::*;
         match self.inner.as_ref() {
-            Unauth(inner) => inner.auth_domain(),
-            Auth(inner) => inner.auth_domain(),
+            Unauth(inner) => inner.auth_base_uri(),
+            Auth(inner) => inner.auth_base_uri(),
         }
     }
 
@@ -354,17 +354,17 @@ impl ClientTrait for AuthClient {
         }
     }
 
-    fn domain<'a>(&'a self) -> &'a str {
+    fn api_base_uri<'a>(&'a self) -> &'a str {
         match self.previous.inner.as_ref() {
-            ClientType::Auth(auth) => auth.domain(),
-            ClientType::Unauth(unauth) => unauth.domain(),
+            ClientType::Auth(auth) => auth.api_base_uri(),
+            ClientType::Unauth(unauth) => unauth.api_base_uri(),
         }
     }
 
-    fn auth_domain<'a>(&'a self) -> &'a str {
+    fn auth_base_uri<'a>(&'a self) -> &'a str {
         match self.previous.inner.as_ref() {
-            ClientType::Auth(auth) => auth.auth_domain(),
-            ClientType::Unauth(unauth) => unauth.auth_domain(),
+            ClientType::Auth(auth) => auth.auth_base_uri(),
+            ClientType::Unauth(unauth) => unauth.auth_base_uri(),
         }
     }
 

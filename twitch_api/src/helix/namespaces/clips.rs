@@ -21,9 +21,7 @@ pub fn clip<S: ToString>(client: Client, id: &S)
     -> ApiRequest<DataContainer<Clip>>
 {
     let client = client.inner;
-    let url =
-        String::from("https://") + 
-        client.domain() + "/helix/clips" + "?id=" + &id.to_string();
+    let url = client.api_base_uri().to_owned() + "/helix/clips" + "?id=" + &id.to_string();
 
     let params : ParamList = BTreeMap::new();
 

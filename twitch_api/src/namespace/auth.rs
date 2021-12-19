@@ -39,9 +39,7 @@ impl Client {
 pub fn client_credentials<S: ToString>(client: Client, secret: &S)
     -> ApiRequest<Credentials> {
 
-    let url =
-        String::from("https://") + 
-        client.auth_domain() + "/oauth2/token";
+    let url = client.auth_base_uri().to_owned() + "/oauth2/token";
 
     let mut params : BTreeMap<&str, &dyn ToString> = BTreeMap::new();
     let client_id = &client.id();

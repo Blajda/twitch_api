@@ -31,8 +31,7 @@ impl Client {
 pub fn by_id<S: ToString>(client: Client, ids: &[S]) 
     -> IterableApiRequest<PaginationContainer<Video>> {
     let client = client.inner;
-    let url =
-        String::from("https://") + client.domain() + &String::from("/helix/videos");
+    let url = client.api_base_uri().to_owned() + &String::from("/helix/videos");
 
     let mut params: ParamList = BTreeMap::new();
     for id in ids {
@@ -46,8 +45,7 @@ pub fn by_id<S: ToString>(client: Client, ids: &[S])
 pub fn by_user<S: ToString>(client: Client, user_id: &S) 
     -> IterableApiRequest<PaginationContainer<Video>> {
     let client = client.inner;
-    let url =
-        String::from("https://") + client.domain() + &String::from("/helix/videos");
+    let url = client.api_base_uri().to_owned() + &String::from("/helix/videos");
 
     let mut params: ParamList = BTreeMap::new();
     params.insert("user_id", user_id);
@@ -59,8 +57,7 @@ pub fn by_user<S: ToString>(client: Client, user_id: &S)
 pub fn for_game<S: ToString>(client: Client, game_id: &S) 
     -> IterableApiRequest<PaginationContainer<Video>> {
     let client = client.inner;
-    let url =
-        String::from("https://") + client.domain() + &String::from("/helix/videos");
+    let url = client.api_base_uri().to_owned() + &String::from("/helix/videos");
 
     let mut params: ParamList = BTreeMap::new();
     params.insert("game_id", game_id);

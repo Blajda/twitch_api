@@ -23,8 +23,7 @@ pub fn users<S: ToString>(
         logins: &[S],
     ) -> ApiRequest<DataContainer<User>> {
         let client = client.inner;
-        let url =
-            String::from("https://") + client.domain() + &String::from("/helix/users");
+        let url = client.api_base_uri().to_owned() + &String::from("/helix/users");
 
         let mut params: BTreeMap<&str, &dyn ToString> = BTreeMap::new();
         for id in ids {

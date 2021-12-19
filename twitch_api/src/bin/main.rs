@@ -8,7 +8,6 @@ extern crate env_logger;
 use futures::future::Future;
 use std::env;
 use twitch_api::HelixClient;
-use twitch_api::KrakenClient;
 use twitch_api::ClientConfig;
 use twitch_api::client::RatelimitMap;
 use twitch_types::UserId;
@@ -26,7 +25,6 @@ fn main() {
 
     let client_id = &env::var("TWITCH_API").unwrap();
     let helix_client =  HelixClient::new_with_config(client_id, config);
-    let _kraken_client = KrakenClient::new(client_id);
 
         /*
         .authenticate(&env::var("TWITCH_SECRET").unwrap())

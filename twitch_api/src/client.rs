@@ -30,7 +30,6 @@ pub struct RatelimitMap {
 
 const API_DOMAIN: &'static str = "api.twitch.tv";
 const AUTH_DOMAIN: &'static str = "id.twitch.tv";
-const KRAKEN_ACCEPT: &'static str = "application/vnd.twitchtv.v5+json";
 
 pub trait PaginationTrait {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
@@ -56,7 +55,6 @@ impl fmt::Display for ScopeParseError {
 #[derive(PartialEq, Hash, Eq, Clone, Debug)]
 pub enum Scope {
     Helix(HelixScope),
-    Kraken(KrakenScope),
 }
 
 impl TryFrom<&str> for Scope {
@@ -64,9 +62,6 @@ impl TryFrom<&str> for Scope {
     fn try_from(s: &str) -> Result<Scope, Self::Error> {
         if let Ok(scope) = HelixScope::try_from(s) {
             return Ok(Scope::Helix(scope));
-        }
-        if let Ok(scope) = KrakenScope::try_from(s) {
-            return Ok(Scope::Kraken(scope));
         }
         Err(ScopeParseError {})
     }
@@ -131,86 +126,9 @@ impl TryFrom<&str> for HelixScope {
     }
 }
 
-#[derive(PartialEq, Hash, Eq, Clone, Debug)]
-pub enum KrakenScope {
-    ChannelCheckSubscription,
-    ChannelCommercial,
-    ChannelEditor,
-    ChannelFeedEdit,
-    ChannelFeedRead,
-    ChannelRead,
-    ChannelStream,
-    ChannelSubscriptions,
-    CollectionsEdit,
-    CommunitiesEdit,
-    CommunitiesModerate,
-    Openid,
-    UserBlocksEdit,
-    UserBlocksRead,
-    UserFollowsEdit,
-    UserRead,
-    UserSubscriptions,
-    ViewingActivityRead,
-}
-
-impl KrakenScope {
-    pub fn to_str(&self) -> &'static str {
-        use self::KrakenScope::*;
-        match self {
-            ChannelCheckSubscription => "channel_check_subscription",
-            ChannelCommercial => "channel_commercial",
-            ChannelEditor => "channel_editor",
-            ChannelFeedEdit => "channel_feed_edit",
-            ChannelFeedRead => "channel_feed_read",
-            ChannelRead => "channel_read",
-            ChannelStream => "channel_stream",
-            ChannelSubscriptions => "channel_subscriptions",
-            CollectionsEdit => "collections_edit",
-            CommunitiesEdit => "communities_edit",
-            CommunitiesModerate => "communities_moderate",
-            Openid => "openid",
-            UserBlocksEdit => "user_blocks_edit",
-            UserBlocksRead => "user_blocks_read",
-            UserFollowsEdit => "user_follows_edit",
-            UserRead => "user_read",
-            UserSubscriptions => "user_subscriptions",
-            ViewingActivityRead => "viewing_activity_read",
-        }
-    }
-}
-
-impl TryFrom<&str> for KrakenScope {
-    type Error = ScopeParseError;
-    fn try_from(s: &str) -> Result<KrakenScope, Self::Error> {
-        use self::KrakenScope::*;
-        Ok( match s {
-            "channel_check_subscription" => ChannelCheckSubscription,
-            "channel_commercial" => ChannelCommercial,
-            "channel_editor" => ChannelEditor,
-            "channel_feed_edit" => ChannelFeedEdit,
-            "channel_feed_read" => ChannelFeedRead,
-            "channel_read" => ChannelRead,
-            "channel_stream" => ChannelStream,
-            "channel_subscriptions" => ChannelSubscriptions,
-            "collections_edit" => CollectionsEdit,
-            "communities_edit" => CommunitiesEdit,
-            "communities_moderate" => CommunitiesModerate,
-            "openid" => Openid,
-            "user_blocks_edit" => UserBlocksEdit,
-            "user_blocks_read" => UserBlocksRead,
-            "user_follows_edit" => UserFollowsEdit,
-            "user_read" => UserRead,
-            "user_subscriptions" => UserSubscriptions,
-            "viewing_activity_read" => ViewingActivityRead,
-            _ => return Err(ScopeParseError {})
-        })
-    }
-}
-
 #[derive(Clone)]
 pub enum Version {
     Helix,
-    Kraken,
 }
 
 impl Client {
@@ -573,20 +491,6 @@ impl Client {
 
                 request.header("Client-ID", client_header)
             },
-            Version::Kraken => {
-                let client_header = header::HeaderValue::from_str(self.id()).unwrap();
-                let accept_header = header::HeaderValue::from_str(KRAKEN_ACCEPT).unwrap();
-
-                let request = request.header("Client-ID", client_header);
-                let request = request.header("Accept", accept_header);
-                let request = if let Some(token) = token {
-                    let value = "OAuth ".to_owned() + &token;
-                    let token_header = header::HeaderValue::from_str(&value).unwrap();
-                    request.header("Authorization", token_header)
-                } else {request};
-
-                request
-            }
         }
     }
 }

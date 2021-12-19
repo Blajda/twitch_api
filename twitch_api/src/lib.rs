@@ -10,7 +10,6 @@ extern crate serde_json;
 extern crate twitch_types;
 
 pub mod helix;
-pub mod kraken;
 pub mod error;
 mod sync;
 pub mod namespace;
@@ -18,5 +17,4 @@ pub mod client;
 pub mod models;
 
 pub use self::helix::Client as HelixClient;
-pub use self::kraken::Client as KrakenClient;
 pub use self::client::{ClientConfig, TestConfig};

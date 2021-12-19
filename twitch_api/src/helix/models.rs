@@ -3,7 +3,7 @@ extern crate chrono;
 
 use url::Url;
 use chrono::{DateTime, Utc};
-use twitch_types::{UserId, VideoId, ChannelId};
+use twitch_types::{UserId, VideoId, BroadcasterId};
 
 use crate::client::PaginationTrait;
 
@@ -94,7 +94,7 @@ pub struct Clip {
     pub url: Url,
     #[serde(with = "url_serde")]
     pub embed_url: Url,
-    pub broadcaster_id: ChannelId,
+    pub broadcaster_id: BroadcasterId,
     pub broadcaster_name: String,
     pub creator_id: UserId,
     pub creator_name: String,

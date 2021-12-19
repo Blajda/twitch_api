@@ -12,7 +12,7 @@ use std::fmt::{Debug, Formatter};
  * an int by Twitch's API. (Maybe to allow a quick switch to a different representation 
  * without breaking the json schema?)
  *
- * Don't Implement Display for StringID since it would allow comparisions between
+ * Don't Implement Display for StringID since it would allow comparisons between
  * different StringId types
  */
 
@@ -22,12 +22,12 @@ pub struct Game {}
 pub struct Clip {}
 
 pub type UserId = StringId<User>;
-pub type ChannelId = UserId;
+pub type BroadcasterId = UserId;
 pub type VideoId = StringId<Video>;
 pub type ClipId = StringId<Clip>;
 pub type GameId = StringId<Game>;
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct StringId<T> {
     id: String,
     marker: PhantomData<T>
@@ -128,10 +128,8 @@ mod tests {
         assert_ne!(&u1, "1235");
 
         /* This must give a compile error */
-        /*
-        let v1 = VideoId::from_str("1234").unwrap();
-        assert_ne!(v1, u1);
-        */
+        //let v1 = VideoId::from_str("1234").unwrap();
+        //assert_ne!(v1, u1);
     }
 
 }

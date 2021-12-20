@@ -1,5 +1,6 @@
 use super::*;
 use super::models::{DataContainer, Clip};
+use futures::compat::Compat01As03;
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;

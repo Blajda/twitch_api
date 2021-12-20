@@ -1,6 +1,7 @@
 #![recursion_limit="128"]
 #![feature(never_type)]
-extern crate futures;
+#![feature(into_future)]
+extern crate futuresv01;
 extern crate reqwest;
 extern crate serde;
 extern crate chrono;

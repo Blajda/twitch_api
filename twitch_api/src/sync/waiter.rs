@@ -1,5 +1,5 @@
-use futures::Future;
-use futures::future::{Shared, SharedError};
+use futuresv01::Future;
+use futuresv01::future::{Shared, SharedError};
 use crate::error::ConditionError;
 
 pub trait Waiter {

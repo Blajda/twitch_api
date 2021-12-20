@@ -1,18 +1,30 @@
 use crate::models::Message;
 use std::convert::TryFrom;
-use futures::future::Future;
 use std::sync::{Arc, Mutex};
+
 use reqwest::r#async::Client as ReqwestClient;
 use reqwest::r#async::{Response};
+use reqwest::r#async::{RequestBuilder};
+use reqwest::header;
+
 
 use std::collections::{HashSet, HashMap};
 use super::error::Error;
-use futures::future::Shared;
-use futures::Poll;
+
+use futuresv01::Stream;
+use futuresv01::future::Future as Futurev01;
+use futuresv01::future::Shared;
+use futuresv01::Poll;
+use futuresv01::Async;
+use futuresv01::try_ready;
+use futuresv01::future::Either;
+
+use std::future::Future;
+use std::future::IntoFuture;
+
+use futures::compat::Compat01As03;
+
 use serde::de::DeserializeOwned;
-use futures::Async;
-use futures::try_ready;
-use futures::future::Either;
 
 use crate::error::ConditionError;
 
@@ -403,7 +415,7 @@ impl Client {
         }
     }
 
-    fn send(&self, builder: RequestBuilder) -> Box<dyn Future<Item=Response, Error=reqwest::Error> + Send> {
+    fn send(&self, builder: RequestBuilder) -> Box<dyn Futurev01<Item=Response, Error=reqwest::Error> + Send> {
         Box::new(builder.send())
     }
 
@@ -449,9 +461,6 @@ impl Client {
     }
 }
 
-
-use reqwest::r#async::{RequestBuilder};
-use reqwest::header;
 
 
 pub struct AuthClientBuilder {
@@ -554,7 +563,7 @@ enum RequestState<T> {
     SetupRatelimit,
     WaitLimit(WaiterState<RatelimitWaiter>),
     WaitRequest,
-    PollParse(Box<dyn Future<Item=T, Error=Error> + Send>),
+    PollParse(Box<dyn Futurev01<Item=T, Error=Error> + Send>),
 }
 
 pub struct ApiRequest<T> {
@@ -705,7 +714,7 @@ use crate::sync::waiter::Waiter;
 
 struct WaiterState<W: Waiter> {
     polling: bool,
-    shared_future: Option<Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>>>,
+    shared_future: Option<Shared<Box<dyn Futurev01<Item=(), Error=ConditionError> + Send>>>,
     waiter: W,
     barrier: Barrier,
 }
@@ -721,7 +730,7 @@ impl<W: Waiter> WaiterState<W> {
     }
 }
 
-impl<W: Waiter> Future for WaiterState<W> {
+impl<W: Waiter> Futurev01 for WaiterState<W> {
     type Item = <W as Waiter>::Item;
     type Error = <W as Waiter>::Error; 
 
@@ -764,7 +773,7 @@ impl Waiter for AuthWaiter {
     }
 
     fn condition(&self) ->
-        Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>> {
+        Shared<Box<dyn Futurev01<Item=(), Error=ConditionError> + Send>> {
         /* If a secret is not provided then just immediately return */
         let secret = self.waiter.secret().unwrap();
         let bottom_client = self.waiter.get_bottom_client();
@@ -787,7 +796,7 @@ impl Waiter for AuthWaiter {
             })
             .map_err(|err| err.into());
 
-        Future::shared(Box::new(auth_future))
+        Futurev01::shared(Box::new(auth_future))
     }
 }
 
@@ -801,13 +810,13 @@ impl Waiter for RatelimitWaiter {
     }
 
     fn condition(&self)
-        -> Shared<Box<dyn Future<Item=(), Error=ConditionError> + Send>> 
+        -> Shared<Box<dyn Futurev01<Item=(), Error=ConditionError> + Send>> 
     {
         /*TODO: Really basic for now*/
         use futures_timer::Delay;
         use std::time::Duration;
         let limits = self.limit.clone();
-        Future::shared(Box::new(
+        Futurev01::shared(Box::new(
             Delay::new(Duration::from_secs(60))
             .map(move |_res| {
                 let mut limits = limits.inner.lock().unwrap();
@@ -825,8 +834,8 @@ impl Waiter for RatelimitWaiter {
 #[macro_export]
 macro_rules! retry_ready {
     ($s:expr, $e:expr) => (match $e {
-        Ok(futures::prelude::Async::Ready(t)) => t,
-        Ok(futures::prelude::Async::NotReady) => return Ok(futures::prelude::Async::NotReady),
+        Ok(futuresv01::prelude::Async::Ready(t)) => t,
+        Ok(futuresv01::prelude::Async::NotReady) => return Ok(futuresv01::prelude::Async::NotReady),
         Err(e) => {
             if $s.attempt < $s.max_attempts {
                 $s.attempt += 1;
@@ -839,7 +848,6 @@ macro_rules! retry_ready {
     })
 }
 
-use futures::Stream;
 
 impl<T: DeserializeOwned + PaginationTrait + 'static + Send> Stream for IterableApiRequest<T> {
     type Item = T;
@@ -860,7 +868,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> Stream for Iterable
                             });
                 },
                 IterableApiRequestState::PollInner(request) => {
-                    let f = request as &mut dyn Future<Item=Self::Item, Error=Self::Error>;
+                    let f = request as &mut dyn Futurev01<Item=Self::Item, Error=Self::Error>;
                     match f.poll() {
                         Err(err) => {
                             self.state = IterableApiRequestState::Finished;
@@ -900,7 +908,17 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> Stream for Iterable
     }
 }
 
-impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
+impl <T: DeserializeOwned + 'static + Send> IntoFuture for ApiRequest<T> {
+
+    type Output = Result<T, Error>;
+    type Future = Compat01As03<ApiRequest<T>>;
+
+    fn into_future(self) -> Self::Future {
+        return Compat01As03::new(self);
+    }
+}
+
+impl<T: DeserializeOwned + 'static + Send> Futurev01 for ApiRequest<T> {
     type Item = T;
     type Error = Error;
 
@@ -1015,8 +1033,8 @@ impl<T: DeserializeOwned + 'static + Send> Future for ApiRequest<T> {
                                         response.json::<Message>()
                                         .then(|res| {
                                             match res {
-                                                Ok(message) => futures::future::err(Some(message)),
-                                                Err(_err) => futures::future::err(None)
+                                                Ok(message) => futuresv01::future::err(Some(message)),
+                                                Err(_err) => futuresv01::future::err(None)
                                             }
                                         })
                                         .map_err(move |maybe_message| {

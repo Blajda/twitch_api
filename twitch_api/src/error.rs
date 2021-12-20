@@ -1,5 +1,5 @@
 use reqwest::Error as ReqwestError;
-use futures::future::SharedError;
+use futuresv01::future::SharedError;
 use std::convert::From;
 use std::sync::Arc;
 use serde_json::Error as JsonError;

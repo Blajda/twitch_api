@@ -20,12 +20,14 @@ pub struct User {}
 pub struct Video {}
 pub struct Game {}
 pub struct Clip {}
+pub struct Stream {}
 
 pub type UserId = StringId<User>;
 pub type BroadcasterId = UserId;
 pub type VideoId = StringId<Video>;
 pub type ClipId = StringId<Clip>;
 pub type GameId = StringId<Game>;
+pub type StreamId = StringId<Stream>;
 
 #[derive(Clone, Hash)]
 pub struct StringId<T> {
@@ -51,6 +53,7 @@ impl<'a, T> StringId<T> {
     }
 }
 
+
 impl<'a, T> AsRef<str> for StringId<T> {
     fn as_ref(&self) -> &str {
         &self.id
@@ -68,6 +71,12 @@ impl<T> Debug for StringId<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result
     {
         write!(f, "{:?}", &self.id)
+    }
+}
+
+impl<T> ToString for StringId<T> {
+    fn to_string(&self) -> String {
+        self.id.to_string()
     }
 }
 

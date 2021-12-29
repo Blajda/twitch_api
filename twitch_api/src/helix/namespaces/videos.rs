@@ -3,7 +3,7 @@ use super::models::{PaginationContainer, Video};
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
-
+/*
 impl VideosNamespace {
     pub fn by_id<S: ToString>(self, ids: &[S])
         -> IterableApiRequest<PaginationContainer<Video>> {
@@ -65,3 +65,4 @@ pub fn for_game<S: ToString>(client: Client, game_id: &S)
     IterableApiRequest::new(url, params, client,
                             Method::GET, Some(RatelimitKey::Default))
 }
+*/

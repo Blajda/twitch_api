@@ -1,39 +1,40 @@
-use crate::models::Message;
 use std::convert::TryFrom;
+use std::marker::PhantomData;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
-use reqwest::r#async::Client as ReqwestClient;
-use reqwest::r#async::{Response};
-use reqwest::r#async::{RequestBuilder};
-use reqwest::header;
+use std::future::IntoFuture;
+use std::task::Poll;
 
+
+use hyper::client::{Client as HyperClient, ResponseFuture, HttpConnector};
+use hyper::{Error as HyperError, Response, HeaderMap};
+use hyper::Request;
+use hyper::Method;
+use hyper::body::{HttpBody, Bytes};
+use hyper::body::Body;
+use hyper::http::response::Parts;
+use hyper_tls::HttpsConnector;
+use crate::error::Error;
+use crate::helix::models::{Credentials, DataContainer, PaginationContainer};
+use crate::namespace::auth::client_credentials;
 
 use std::collections::{HashSet, HashMap};
-use super::error::Error;
-
-use futuresv01::Stream;
-use futuresv01::future::Future as Futurev01;
-use futuresv01::future::Shared;
-use futuresv01::Poll;
-use futuresv01::Async;
-use futuresv01::try_ready;
-use futuresv01::future::Either;
-
-use std::future::Future;
-use std::future::IntoFuture;
-
-use futures::compat::Compat01As03;
+use futures::{Future, FutureExt};
 
 use serde::de::DeserializeOwned;
 
-use crate::error::ConditionError;
+
+use std::collections::BTreeMap;
 
 
 #[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Debug)]
 pub enum RatelimitKey {
     Default,
 }
 
+#[derive(Debug)]
 pub struct RatelimitMap {
     pub inner: HashMap<RatelimitKey, Ratelimit>
 }
@@ -45,9 +46,23 @@ pub trait PaginationTrait {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
 }
 
+pub trait PaginationTrait2<T> {
+    fn next(&self) -> Option<IterableApiRequest<T>>;
+    fn prev(&self) -> Option<IterableApiRequest<T>>;
+}
+
+pub trait PaginationContrainerTrait {
+    fn set_last_cursor(&mut self, cursor: String);
+    fn set_last_direction(&mut self, forward: bool);
+    fn set_base_request(&mut self, request: Arc<RequestRef>);
+}
+
+pub trait HelixPagination {}
+
 pub type ParamList<'a> = BTreeMap<&'a str, &'a dyn ToString>;
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct Client {
     inner: Arc<ClientType>,
 }
@@ -76,7 +91,8 @@ impl TryFrom<&str> for Scope {
         Err(ScopeParseError {})
     }
 }
-use serde::{Deserialize, Deserializer}; 
+use serde::{Deserialize, Deserializer};
+
 impl<'de> Deserialize<'de> for Scope {
 
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -137,6 +153,7 @@ impl TryFrom<&str> for HelixScope {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub enum Version {
     Helix,
 }
@@ -156,14 +173,16 @@ impl Client {
     }
 }
 
+#[derive(Debug)]
 enum ClientType {
     Unauth(UnauthClient),
     Auth(AuthClient),
 }
 
 
+#[derive(Debug)]
 pub struct ClientConfig {
-    pub reqwest: ReqwestClient,
+    pub hyper: HyperClient<HttpsConnector<HttpConnector>>,
     pub api_base_uri:  String,
     pub auth_base_uri: String,
     pub ratelimits: RatelimitMap,
@@ -192,11 +211,12 @@ impl RatelimitMap {
 impl Default for ClientConfig {
 
     fn default() -> Self {
-        let reqwest = ReqwestClient::new();
         let ratelimits = RatelimitMap::default();
+        let https = HttpsConnector::new();
+        let hyper = HyperClient::builder().build::<_, Body>(https);
 
         ClientConfig {
-            reqwest,
+            hyper: hyper,
             api_base_uri: API_BASE_URI.to_owned(),
             auth_base_uri: AUTH_BASE_URI.to_owned(),
             ratelimits,
@@ -205,17 +225,19 @@ impl Default for ClientConfig {
     }
 }
 
+#[derive(Debug)]
 pub struct UnauthClient {
     id: String,
     config: ClientConfig,
     version: Version,
 }
 
+#[derive(Debug)]
 pub struct AuthClient {
+    credentials: Credentials,
     secret: String,
-    auth_state: Mutex<AuthStateRef>,
-    auth_barrier: Barrier,
     previous: Client,
+    scopes: Vec<Scope>
 }
 
 pub trait ClientTrait {
@@ -357,26 +379,17 @@ impl ClientTrait for AuthClient {
     }
 
     fn authenticated(&self) -> bool {
-        let auth = self.auth_state.lock().expect("Auth Lock is poisoned");
-        auth.state == AuthState::Auth
+        true
     }
 
     fn scopes(&self) -> Vec<Scope> {
-        let auth = self.auth_state.lock().expect("Auth Lock is poisoned");
-        auth.scopes.clone()
+        self.scopes.clone()
     }
-}
-
-#[derive(Clone, PartialEq)]
-enum AuthState {
-    Unauth,
-    Auth,
 }
 
 struct AuthStateRef {
     token: Option<String>,
     scopes: Vec<Scope>,
-    state: AuthState,
 }
 
 impl Client {
@@ -407,18 +420,6 @@ impl Client {
         }
     }
 
-    fn reqwest(&self) -> ReqwestClient {
-        use self::ClientType::*;
-        match self.inner.as_ref() {
-            Unauth(inner) => inner.config.reqwest.clone(),
-            Auth(inner) => inner.previous.reqwest(),
-        }
-    }
-
-    fn send(&self, builder: RequestBuilder) -> Box<dyn Futurev01<Item=Response, Error=reqwest::Error> + Send> {
-        Box::new(builder.send())
-    }
-
     /* The 'bottom' client must always be a client that is not authorized.
      * This allows for calls to Auth endpoints using the same control flow
      * as other requests.
@@ -430,33 +431,6 @@ impl Client {
         match self.inner.as_ref() {
             ClientType::Auth(inner) => inner.previous.get_bottom_client(),
             ClientType::Unauth(_) => self.clone(),
-        }
-    }
-
-    fn apply_standard_headers(&self, request: RequestBuilder) 
-       -> RequestBuilder 
-    {
-        let token = match self.inner.as_ref() {
-            ClientType::Auth(inner) => {
-                let auth = inner.auth_state.lock().expect("Authlock is poisoned");
-                auth.token.as_ref().map(|s| s.to_owned())
-            }
-            ClientType::Unauth(_) => None,
-        };
-        match self.version() {
-            Version::Helix => {
-
-                let client_header = header::HeaderValue::from_str(self.id()).unwrap();
-
-                let request =
-                    if let Some(token) = token {
-                        let value = "Bearer ".to_owned() + &token;
-                        let token_header = header::HeaderValue::from_str(&value).unwrap();
-                        request.header("Authorization", token_header)
-                    } else { request };
-
-                request.header("Client-ID", client_header)
-            },
         }
     }
 }
@@ -483,23 +457,21 @@ impl AuthClientBuilder {
         }
     }
 
-    pub fn build(self) -> Client {
-        let auth_state = if self.token.is_some() { AuthState::Auth } else { AuthState::Unauth };
-        let old_client = self.client;
-        Client {
+    pub async fn build(self) -> Result<Client, Error> {
+        let old_client = self.client.clone();
+        let cred = client_credentials(self.client.clone(), &self.secret).await;
+        if let Err(e) = cred { return Err(Error::from(e)); }
+        let cred = cred.unwrap();
+
+        Ok(Client {
             inner: Arc::new(ClientType::Auth(
                 AuthClient {
+                credentials: cred,
                 secret: self.secret,
-                auth_barrier: Barrier::new(),
-                auth_state: Mutex::new (
-                    AuthStateRef {
-                        token: self.token,
-                        scopes: Vec::new(),
-                        state: auth_state,
-                    }),
                 previous: old_client,
+                scopes: Vec::new(),
             }))
-        }
+        })
     }
 
     pub fn scope(mut self, scope: Scope) -> AuthClientBuilder {
@@ -522,10 +494,8 @@ impl AuthClientBuilder {
     }
 }
 
-use std::collections::BTreeMap;
-use reqwest::Method;
-
-struct RequestRef {
+#[derive(Debug)]
+pub struct RequestRef {
     url: String,
     params: BTreeMap<String, String>,
     client: Client,
@@ -535,20 +505,22 @@ struct RequestRef {
 
 impl RequestRef {
     pub fn new(url: String,
-               params: BTreeMap<&str, &dyn ToString>,
+               params: BTreeMap<String, String>,
                client: Client,
                method: Method,
                ratelimit: Option<RatelimitKey>,
                ) -> RequestRef 
     {
+        /*
         let mut owned_params = BTreeMap::new();
         for (key, value) in params {
             owned_params.insert(key.to_string(), value.to_string());
         }
+        */
 
         RequestRef {
             url: url,
-            params: owned_params,
+            params: params,
             client: client,
             method: method,
             ratelimit: ratelimit,
@@ -556,39 +528,213 @@ impl RequestRef {
     }
 }
 
-enum RequestState<T> {
-    SetupRequest,
-    SetupBarriers,
-    WaitAuth(WaiterState<AuthWaiter>),
-    SetupRatelimit,
-    WaitLimit(WaiterState<RatelimitWaiter>),
-    WaitRequest,
-    PollParse(Box<dyn Futurev01<Item=T, Error=Error> + Send>),
-}
-
 pub struct ApiRequest<T> {
     inner: Arc<RequestRef>,
-    state: RequestState<T>,
-    attempt: u32,
     max_attempts: u32,
     pagination: Option<String>,
+    forward: bool,
+    _marker: PhantomData<T>
 }
 
-enum IterableApiRequestState<T> {
-    Start,
-    PollInner(ApiRequest<T>),
-    Finished,
+pub struct RequestBuilder<T> {
+    url: String,
+    params: BTreeMap<String, String>,
+    client: Client,
+    method: Method,
+    ratelimit_key: Option<RatelimitKey>,
+    _marker: PhantomData<T>
 }
+
+impl<T: DeserializeOwned + PaginationTrait + 'static + Send> RequestBuilder<T> {
+
+    pub fn new(client: Client, url: String, method: Method) -> Self {
+        RequestBuilder {
+            url: url,
+            params: BTreeMap::new(),
+            client: client,
+            ratelimit_key: Some(RatelimitKey::Default),
+            method: method,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn build(self) -> ApiRequest<T> {
+        ApiRequest::new(self.url, self.params, self.client, self.method, self.ratelimit_key)
+    }
+
+    pub fn with_query<S: ToString + ?Sized, S2: ToString +?Sized>(&mut self, key: &S, value: &S2) {
+        self.params.insert(key.to_string(), value.to_string());
+    }
+
+    pub fn with_ratelimit_key(&mut self, key: RatelimitKey) {
+        self.ratelimit_key = Some(key);
+    }
+}
+
+
+impl<T: DeserializeOwned + PaginationTrait + 'static + Send + HelixPagination> RequestBuilder<T> {
+    pub fn build_iterable(self) -> IterableApiRequest<T> {
+        let r = self.build();
+        IterableApiRequest::from_request(&r)
+    }
+}
+
+impl<T> IntoFuture for RequestBuilder<T> 
+where T: DeserializeOwned + PaginationTrait + 'static + Send 
+{
+    type Output = Result<T, Error>;
+    type Future = RequestFuture<T>;
+
+    fn into_future(self) -> Self::Future {
+        let request = self.build();
+        return request.into_future();
+    }
+
+}
+
+pub struct RequestFuture<T> {
+    state: FutureState,
+    _marker: PhantomData<T>,
+}
+
+enum FutureState {
+    PollRequest(Pin<Box<dyn Future<Output = Result<Response<Body>, HyperError>>>>),
+    PollBody(Parts, Pin<Box<dyn Future<Output = Result<Bytes, HyperError>>>>),
+}
+
+impl<T> Future for RequestFuture<T> 
+    where T : serde::de::DeserializeOwned {
+    type Output = Result<T, Error>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+        let this = unsafe { self.get_unchecked_mut() };
+
+        loop {
+            match &mut this.state {
+                FutureState::PollRequest(req) => {
+                    let poll = req.as_mut().poll(cx);
+
+                    match poll {
+                        Poll::Pending => { return Poll::Pending },
+                        Poll::Ready(Err(e)) => {return Poll::Ready(Err(Error::from(e)))},
+                        Poll::Ready(Ok(res)) => {
+                            let (parts, body) = res.into_parts();
+                            this.state = FutureState::PollBody(parts, Box::pin(hyper::body::to_bytes(body)));
+
+                            //TODO: Update Rate limits
+                            continue;
+                        }
+                    };
+                },
+                FutureState::PollBody(part,body) => {
+                    let poll = body.as_mut().poll(cx);
+
+                    match poll {
+                        Poll::Pending => { return Poll::Pending },
+                        Poll::Ready(Err(e)) => {return Poll::Ready(Err(Error::from(e)))},
+                        Poll::Ready(Ok(res)) => {
+                            debug!("{:#?}", part);
+                            debug!("{:#?}", res);
+                            let value = serde_json::from_slice::<T>(res.as_ref());
+                            if let Err(e) = value { return Poll::Ready(Err(Error::from(e))); }
+                            let value = value.unwrap();
+                            return Poll::Ready(Ok(value));
+                        }
+                    };
+                }
+            }
+        }
+
+    }
+}
+
+impl<T> IntoFuture for ApiRequest<T> 
+where T: serde::de::DeserializeOwned
+{
+    type Output = Result<T, Error>;
+    type Future = RequestFuture<T>;
+
+    fn into_future(self) -> Self::Future {
+
+        let mut query = String::new();
+        let mut uri = self.inner.url.clone();
+
+
+        for (key, value) in &self.inner.params {
+            if query.len() > 0 {
+                query = query + "&";
+            }
+            query = query + key + "=" + value;
+        }
+
+        //Add Pagination
+        if let Some(page) = self.pagination {
+            let mut key = "after";
+            if query.len() > 0 {
+                query = query + "&";
+            }
+            if !self.forward {
+                key = "before"
+            }
+            query = query + key + "=" + &page;
+        }
+
+        if query.len() > 0 {
+            uri = uri + "?" + &query;
+        }
+
+
+        let mut builder = Request::builder()
+            .method(self.inner.method.clone())
+            .header("Client-Id", self.inner.client.id())
+            .uri(uri);
+
+        if let ClientType::Auth(c) = self.inner.client.inner.as_ref() {
+            builder = builder.header("Authorization", "Bearer ".to_owned() + &c.credentials.access_token);
+        }
+
+        let req = builder.body(Body::empty()).unwrap();
+        debug!("{:?}", req);
+        let f = self.inner.client.config().hyper.request(req);
+        RequestFuture {
+            state: FutureState::PollRequest(Box::pin(f)),
+            _marker: PhantomData,
+        }
+    }
+
+}
+
 
 pub struct IterableApiRequest<T> {
     inner: Arc<RequestRef>,
-    state: IterableApiRequestState<T>, 
+    cursor: Option<String>,
+    _forward: bool,
+    _marker: PhantomData<T>,
+}
+
+impl<T> IterableApiRequest<T> {
+    pub fn from_request(request: &ApiRequest<T>) -> IterableApiRequest<T> {
+        IterableApiRequest {
+            inner: request.inner.clone(),
+            cursor: None,
+            _forward: true,
+            _marker: PhantomData,
+        }
+    }
+    pub fn from_request2(request: Arc<RequestRef>, cursor: Option<String>, forward: bool) -> IterableApiRequest<T> {
+        IterableApiRequest {
+            inner: request,
+            cursor: cursor,
+            _forward: forward,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
 
     pub fn new(url: String,
-               params: BTreeMap<&str, &dyn ToString>,
+               params: BTreeMap<String, String>,
                client: Client,
                method: Method,
                ratelimit: Option<RatelimitKey>,
@@ -597,10 +743,10 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
         let max_attempts = client.config().max_retrys;
         ApiRequest {
             inner: Arc::new(RequestRef::new(url, params, client, method, ratelimit)),
-            state: RequestState::SetupRequest,
-            attempt: 0,
             max_attempts,
             pagination: None,
+            forward: true,
+            _marker: PhantomData
         }
     }
 }
@@ -608,7 +754,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
 impl<T: DeserializeOwned + PaginationTrait + 'static + Send> IterableApiRequest<T> {
     
     pub fn new(url: String,
-               params: BTreeMap<&str, &dyn ToString>,
+               params: BTreeMap<String, String>,
                client: Client,
                method: Method,
                ratelimit: Option<RatelimitKey>
@@ -619,20 +765,80 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> IterableApiRequest<
 
         IterableApiRequest {
             inner: request_ref,
-            state: IterableApiRequestState::Start,
+            cursor: None,
+            _forward: true,
+            _marker: PhantomData,
         }
     }
 }
 
+pub struct IterableRequestFuture<T>{
+    request: Arc<RequestRef>,
+    state: IterableApiRequestState<T>,
+    _marker: PhantomData<T>,
+}
+
+enum IterableApiRequestState<T> {
+    PollInner(Pin<Box<RequestFuture<T>>>),
+}
+
+impl<T> IntoFuture for IterableApiRequest<T> 
+where T: serde::de::DeserializeOwned + PaginationContrainerTrait
+{
+    type Output = Result<T, Error>;
+    type Future = IterableRequestFuture<T>;
+
+    fn into_future(self) -> Self::Future {
+        let r = self.inner;
+
+        let r = ApiRequest {
+            inner: r.clone(),
+            max_attempts: 4,
+            pagination: self.cursor,
+            forward: true,
+            _marker: PhantomData
+        };
+
+        IterableRequestFuture {
+            request: r.inner.clone(),
+            state:  IterableApiRequestState::PollInner(Box::pin(r.into_future())),
+            _marker: PhantomData
+        }
+    }
+
+}
+
+impl<T> Future for IterableRequestFuture<T> 
+    where T : serde::de::DeserializeOwned + PaginationContrainerTrait {
+    type Output = Result<T, Error>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        let this = unsafe { Pin::get_unchecked_mut(self)};
+        match &mut this.state {
+            IterableApiRequestState::PollInner(inner) => {
+                let r = inner.as_mut().poll(cx);
+                match r {
+                    Poll::Pending => Poll::Pending,
+                    Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                    Poll::Ready(Ok(mut r)) => {
+                        r.set_base_request(this.request.clone());
+                        r.set_last_direction(true);
+                        Poll::Ready(Ok(r))
+                    }   
+                }
+            }
+        }
+    }
+}
 
 pub struct RatelimitWaiter {
     limit: Ratelimit,
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct Ratelimit {
     inner: Arc<Mutex<RatelimitRef>>,
-    barrier: Barrier,
 }
 
 impl Ratelimit {
@@ -656,11 +862,9 @@ impl Ratelimit {
                            }
                         )
                     ),
-            barrier: Barrier::new(),
         }
     }
 }
-
 
 
 #[derive(Debug, Clone)]
@@ -676,7 +880,7 @@ pub struct RatelimitRef {
 
 
 impl RatelimitRef {
-    pub fn update_from_headers(&mut self, headers: &reqwest::header::HeaderMap) {
+    pub fn update_from_headers(&mut self, headers: &HeaderMap) {
         let maybe_limit =
             headers
             .get(&self.header_limit)
@@ -705,358 +909,6 @@ impl RatelimitRef {
 
         if let Some(reset) = maybe_reset {
             self.reset = Some(reset);
-        }
-    }
-}
-
-use crate::sync::barrier::Barrier;
-use crate::sync::waiter::Waiter;
-
-struct WaiterState<W: Waiter> {
-    polling: bool,
-    shared_future: Option<Shared<Box<dyn Futurev01<Item=(), Error=ConditionError> + Send>>>,
-    waiter: W,
-    barrier: Barrier,
-}
-
-impl<W: Waiter> WaiterState<W> {
-    fn new(waiter: W, barrier: &Barrier) -> WaiterState<W> {
-        WaiterState {
-            polling: false,
-            shared_future: None,
-            waiter: waiter,
-            barrier: barrier.clone(),
-        }
-    }
-}
-
-impl<W: Waiter> Futurev01 for WaiterState<W> {
-    type Item = <W as Waiter>::Item;
-    type Error = <W as Waiter>::Error; 
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        loop {
-            let blocked = self.waiter.blocked();
-            if blocked && !self.polling {
-                let fut = self.barrier.condition(&self.waiter);
-                self.shared_future = Some(fut);
-                self.polling = true;
-            } else if blocked || self.polling {
-                let f = self.shared_future.as_mut().unwrap();
-                try_ready!(f.poll());
-                self.polling = false;
-            } else {
-                return Ok(Async::Ready(<W as Waiter>::Item::default()));
-            }
-        }
-    }
-}
-
-
-struct AuthWaiter {
-    waiter: Client,
-}
-
-impl Waiter for AuthWaiter {
-    type Item = ();
-    type Error = ConditionError;
-
-    fn blocked(&self) -> bool {
-        match self.waiter.inner.as_ref() {
-            ClientType::Unauth(_) => false,
-            ClientType::Auth(inner) => {
-                let auth = inner.auth_state.lock()
-                    .expect("unable to lock auth state");
-                auth.state == AuthState::Unauth
-            }
-        }
-    }
-
-    fn condition(&self) ->
-        Shared<Box<dyn Futurev01<Item=(), Error=ConditionError> + Send>> {
-        /* If a secret is not provided then just immediately return */
-        let secret = self.waiter.secret().unwrap();
-        let bottom_client = self.waiter.get_bottom_client();
-        let client = self.waiter.clone();
-
-        let auth_future = 
-            bottom_client
-            .auth()
-            .client_credentials(secret)
-            .map(move |credentials| {
-                if let ClientType::Auth(inner) = client.inner.as_ref() {
-                    let mut auth = inner.auth_state.lock().unwrap();
-                    auth.state = AuthState::Auth;
-                    auth.token = Some(credentials.access_token.clone());
-                    if let Some(scopes) = credentials.scope {
-                        for scope in scopes { auth.scopes.push(scope) }
-                    }
-                }
-                ()
-            })
-            .map_err(|err| err.into());
-
-        Futurev01::shared(Box::new(auth_future))
-    }
-}
-
-impl Waiter for RatelimitWaiter {
-    type Item = ();
-    type Error = ConditionError;
-
-    fn blocked(&self) -> bool {
-        let limits = self.limit.inner.lock().unwrap();
-        limits.remaining - limits.inflight <= 0
-    }
-
-    fn condition(&self)
-        -> Shared<Box<dyn Futurev01<Item=(), Error=ConditionError> + Send>> 
-    {
-        /*TODO: Really basic for now*/
-        use futures_timer::Delay;
-        use std::time::Duration;
-        let limits = self.limit.clone();
-        Futurev01::shared(Box::new(
-            Delay::new(Duration::from_secs(60))
-            .map(move |_res| {
-                let mut limits = limits.inner.lock().unwrap();
-                limits.remaining = limits.limit;
-                ()
-            })
-            .map_err(|err| Error::from(err).into())
-        ))
-    }
-}
-
-/* Macro ripped directly from try_ready will retry the connection if any error occurs
- * and there are remaning attempts
- */
-#[macro_export]
-macro_rules! retry_ready {
-    ($s:expr, $e:expr) => (match $e {
-        Ok(futuresv01::prelude::Async::Ready(t)) => t,
-        Ok(futuresv01::prelude::Async::NotReady) => return Ok(futuresv01::prelude::Async::NotReady),
-        Err(e) => {
-            if $s.attempt < $s.max_attempts {
-                $s.attempt += 1;
-                $s.state = RequestState::SetupBarriers;
-                continue;
-            } else {
-                return Err(e.into());
-            }
-        }
-    })
-}
-
-
-impl<T: DeserializeOwned + PaginationTrait + 'static + Send> Stream for IterableApiRequest<T> {
-    type Item = T;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        loop {
-            match &mut self.state {
-                IterableApiRequestState::Start => {
-                    self.state = 
-                        IterableApiRequestState::PollInner(
-                            ApiRequest {
-                                inner: self.inner.clone(),
-                                state: RequestState::SetupRequest,
-                                attempt: 0,
-                                max_attempts: self.inner.client.config().max_retrys,
-                                pagination: None
-                            });
-                },
-                IterableApiRequestState::PollInner(request) => {
-                    let f = request as &mut dyn Futurev01<Item=Self::Item, Error=Self::Error>;
-                    match f.poll() {
-                        Err(err) => {
-                            self.state = IterableApiRequestState::Finished;
-                            return Err(err);
-                        },
-                        Ok(state) => {
-                            match state {
-                                Async::NotReady => return Ok(Async::NotReady),
-                                Async::Ready(res) => {
-                                    let cursor = res.cursor();
-                                    match cursor {
-                                        Some(cursor) => {
-                                            self.state = IterableApiRequestState::PollInner(
-                                                ApiRequest {
-                                                    inner: self.inner.clone(),
-                                                    state: RequestState::SetupRequest,
-                                                    attempt: 0,
-                                                    max_attempts: self.inner.client.config().max_retrys,
-                                                    pagination: Some(cursor.to_owned()),
-                                                });
-                                        },
-                                        None => {
-                                            self.state = IterableApiRequestState::Finished;
-                                        }
-                                    }
-                                    return Ok(Async::Ready(Some(res)));
-                                }
-                            }
-                        }
-                    }
-                },
-                IterableApiRequestState::Finished => {
-                    return Ok(Async::Ready(None));
-                }
-            }
-        }
-    }
-}
-
-impl <T: DeserializeOwned + 'static + Send> IntoFuture for ApiRequest<T> {
-
-    type Output = Result<T, Error>;
-    type Future = Compat01As03<ApiRequest<T>>;
-
-    fn into_future(self) -> Self::Future {
-        return Compat01As03::new(self);
-    }
-}
-
-impl<T: DeserializeOwned + 'static + Send> Futurev01 for ApiRequest<T> {
-    type Item = T;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        loop {
-            match &mut self.state {
-                RequestState::SetupRequest => {
-                    self.attempt = 0;
-                    self.state = RequestState::SetupBarriers;
-                }
-                RequestState::SetupBarriers => {
-                    match self.inner.client.inner.as_ref() {
-                        ClientType::Auth(inner) => {
-                            let waiter = AuthWaiter {
-                                waiter: self.inner.client.clone(),
-                            };
-
-                            let f = WaiterState::new(waiter,
-                                        &inner.auth_barrier);
-                            self.state = RequestState::WaitAuth(f);
-                        },
-                        ClientType::Unauth(_) => {
-                            self.state = RequestState::SetupRatelimit;
-                        }
-                    }
-                },
-                RequestState::WaitAuth(auth) => {
-                    let _waiter = retry_ready!(self, auth.poll());
-                    self.state = RequestState::SetupRatelimit;
-                },
-                RequestState::SetupRatelimit => {
-                    let limits = 
-                        self.inner.ratelimit.as_ref().and_then(|key| {
-                            self.inner.client.ratelimit(key.clone())
-                        });
-                    match limits {
-                        Some(ratelimit) => {
-                            let barrier = ratelimit.barrier.clone();
-                            let waiter = RatelimitWaiter {
-                                limit: ratelimit.clone(),
-                            };
-                            let f = WaiterState::new(waiter,
-                                        &barrier);
-                            self.state = RequestState::WaitLimit(f);
-                        },
-                        None => {
-                            self.state = RequestState::WaitRequest;
-                        }
-                    }
-                },
-                RequestState::WaitLimit(limit) => {
-                    let _waiter = retry_ready!(self, limit.poll());
-                    self.state = RequestState::WaitRequest;
-                }, 
-                RequestState::WaitRequest => {
-                    let client = self.inner.client.clone();
-                    let c_ref = &client;
-                    let reqwest = client.reqwest();
-
-                    let limits = 
-                        self.inner.ratelimit.as_ref().and_then(|key| {
-                            c_ref.ratelimit(key.clone())
-                        });
-
-                    if let Some(limits) = limits {
-                        let mut mut_limits = limits.inner.lock().unwrap();
-                        mut_limits.inflight = mut_limits.inflight + 1;
-                        trace!("[TWITCH_API] (limit, remaining, inflight) ({:?}, {:?}, {:?})", mut_limits.limit, mut_limits.remaining, mut_limits.inflight);
-                    }
-
-                    let mut builder = reqwest.request(self.inner.method.clone(), &self.inner.url);
-                    builder = client.apply_standard_headers(builder);
-                    builder = builder.query(&self.inner.params);
-                    builder = 
-                        if let Some(cursor) = &self.pagination {
-                            builder.query(&[("after", cursor)])
-                        } else {
-                            builder
-                        };
-                     
-
-                    let ratelimit_key = self.inner.ratelimit.clone();
-                    let client_cloned = client.clone();
-                    /*
-                    Allow testing by capturing the request and returning a predetermined response
-                    If testing is set in the client config then `Pending` is captured and saved and a future::ok(Response) is returned.
-                    */
-                    let f = 
-                        client.send(builder)
-                            .then(move |result| {
-                                trace!("[TWITCH_API] {:?}", result);
-                                if let Some(ratelimit_key) = ratelimit_key {
-                                    if let Some(limits) = client_cloned.ratelimit(ratelimit_key) {
-                                        let mut mut_limits = limits.inner.lock().unwrap();
-                                        mut_limits.inflight = mut_limits.inflight - 1;
-                                    }
-                                }
-                                result
-                            })
-                            .map_err(|err| err.into())
-                            .and_then(|mut response| {
-                                let status = response.status();
-                                if status.is_success() {
-                                    Either::A(
-                                        response.json().map_err(|err| Error::from(err)).and_then(|json| {
-                                            trace!("[TWITCH_API] {}", json);
-                                            serde_json::from_value(json).map_err(|err| err.into())
-                                        })
-                                    )
-                                } else {
-                                    Either::B(
-                                        response.json::<Message>()
-                                        .then(|res| {
-                                            match res {
-                                                Ok(message) => futuresv01::future::err(Some(message)),
-                                                Err(_err) => futuresv01::future::err(None)
-                                            }
-                                        })
-                                        .map_err(move |maybe_message| {
-                                            let status = response.status();
-                                            if status == 401 || status == 403 {
-                                                Error::auth_error(maybe_message)
-                                            } else if status == 429 {
-                                                Error::ratelimit_error(maybe_message)
-                                            } else {
-                                                Error::auth_error(maybe_message)
-                                            }
-                                        })
-                                    )
-                                }
-                            });
-                    self.state = RequestState::PollParse(Box::new(f));
-                },
-                RequestState::PollParse(future) => {
-                    let res = retry_ready!(self, future.poll());
-                    return Ok(Async::Ready(res));
-                },
-            }
         }
     }
 }

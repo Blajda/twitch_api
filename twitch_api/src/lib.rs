@@ -1,8 +1,6 @@
 #![recursion_limit="128"]
 #![feature(never_type)]
 #![feature(into_future)]
-extern crate futuresv01;
-extern crate reqwest;
 extern crate serde;
 extern crate chrono;
 extern crate serde_json;
@@ -12,7 +10,6 @@ extern crate twitch_types;
 
 pub mod helix;
 pub mod error;
-mod sync;
 pub mod namespace;
 pub mod client;
 pub mod models;

@@ -44,6 +44,7 @@ impl Client {
 }
 
 use crate::client::AuthClientBuilder as GenericAuthClientBuilder;
+use crate::error::Error;
 
 pub struct AuthClientBuilder {
     inner: GenericAuthClientBuilder,
@@ -56,11 +57,11 @@ impl AuthClientBuilder {
         }
     }
 
-    pub fn build(self) -> Client {
-        let client = self.inner.build();
-        Client {
+    pub async fn build(self) -> Result<Client, Error> {
+        let client = self.inner.build().await?;
+        Ok(Client {
             inner: client
-        }
+        })
     }
 
     pub fn scope(self, scope: HelixScope) -> AuthClientBuilder {

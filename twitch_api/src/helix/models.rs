@@ -1,11 +1,25 @@
 extern crate serde_json;
 extern crate chrono;
 
+use std::sync::Arc;
 use url::Url;
 use chrono::{DateTime, Utc};
-use twitch_types::{UserId, VideoId, BroadcasterId};
+use twitch_types::{UserId, VideoId, BroadcasterId, GameId, StreamId};
+use serde::{Deserializer, Deserialize};
+use crate::client::{PaginationTrait, PaginationContrainerTrait, RequestRef, PaginationTrait2, HelixPagination};
+use super::namespaces::IterableApiRequest;
 
-use crate::client::PaginationTrait;
+fn null_as_empty<'de, D, T>(de: D) -> Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let key = Option::deserialize(de)?;
+    match key {
+        Some(list) => Ok(list),
+        None => Ok(Vec::new()),
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataContainer<T> {
@@ -30,14 +44,63 @@ impl<T> PaginationTrait for PaginationContainer<T> {
     }
 }
 
+impl<T> HelixPagination for PaginationContainer<T> {}
+
+impl<T> PaginationTrait2<PaginationContainer<T>> for PaginationContainer<T> {
+    fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
+        match self.cursor() {
+            Some(cursor) => {
+                Some(IterableApiRequest::from_request2(
+            self.base_request.as_ref().unwrap().clone(),
+            Some(cursor.to_owned()),
+            true
+                ))
+            },
+            None => None,
+        }
+    }
+
+    fn prev(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
+        match self.cursor() {
+            Some(cursor) => {
+                Some(IterableApiRequest::from_request2(
+            self.base_request.as_ref().unwrap().clone(),
+            Some(cursor.to_owned()),
+            false
+                ))
+            },
+            None => None,
+        }
+    }
+}
+
 impl PaginationTrait for Credentials {
     fn cursor<'a>(&'a self) -> Option<&'a str> { None }
+}
+
+impl<T> PaginationContrainerTrait for PaginationContainer<T> {
+
+    fn set_last_direction(&mut self, forward: bool) {
+        self.last_direction = Some(forward);
+    }
+
+    fn set_last_cursor(&mut self, cursor: String) {
+        self.last_cursor = Some(cursor);
+    }
+
+    fn set_base_request(&mut self, request: std::sync::Arc<RequestRef>) {
+        self.base_request = Some(request);
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PaginationContainer<T> {
     pub data: Vec<T>,
-    pub pagination: Option<Cursor>
+    pub pagination: Option<Cursor>,
+
+    #[serde(skip)] last_cursor: Option<String>,
+    #[serde(skip)] last_direction: Option<bool>,
+    #[serde(skip)] base_request: Option<Arc<RequestRef>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -113,6 +176,40 @@ pub struct Credentials {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub expires_in: u32,
-    pub scope: Option<Vec<String>>,
+    #[serde(default)]
+    #[serde(deserialize_with = "null_as_empty")]
+    pub scope: Vec<String>,
     pub token_type: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Channel {
+    pub broadcaster_id: BroadcasterId,
+    pub broadcaster_login: String,
+    pub broadcaster_name: String,
+    pub broadcaster_language: String,
+    pub game_id: GameId,
+    pub game_name: String,
+    pub title: String,
+    pub delay: u32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Stream {
+    id: StreamId,
+    user_id: UserId,
+    user_login: String,
+    user_name: String,
+    game_id: GameId,
+    game_name: String,
+    #[serde(rename = "type")]
+    stream_type: String,
+    title: String,
+    viewer_count: u32,
+    started_at: String,
+    language: String,
+    thumbnail_url: String,
+    #[serde(deserialize_with = "null_as_empty")]
+    tag_ids: Vec<String>,
+    is_mature: bool,
 }

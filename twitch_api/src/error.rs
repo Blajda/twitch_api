@@ -1,5 +1,4 @@
-use reqwest::Error as ReqwestError;
-use futuresv01::future::SharedError;
+use hyper::Error as HyperError;
 use std::convert::From;
 use std::sync::Arc;
 use serde_json::Error as JsonError;
@@ -10,12 +9,6 @@ pub struct ConditionError {
     inner:  Arc<Error>,
 }
 
-impl From<SharedError<ConditionError>> for ConditionError {
-    fn from(other: SharedError<ConditionError>) -> Self {
-        (*other).clone()
-    }
-}
-
 impl From<Error> for ConditionError {
     fn from(other: Error) -> Self {
         ConditionError{ inner: Arc::new(other) }
@@ -24,7 +17,7 @@ impl From<Error> for ConditionError {
 
 #[derive(Debug)]
 enum Kind {
-    Reqwest(ReqwestError),
+    Hyper(HyperError),
     ConditionError(ConditionError),
     Io(std::io::Error),
     Json(JsonError),
@@ -64,11 +57,11 @@ impl Error {
 }
 
 
-impl From<reqwest::Error> for Error {
+impl From<HyperError> for Error {
 
-    fn from(err: ReqwestError) -> Error {
+    fn from(err: HyperError) -> Error {
         Error {
-            inner: Kind::Reqwest(err)
+            inner: Kind::Hyper(err)
         }
     }
 }

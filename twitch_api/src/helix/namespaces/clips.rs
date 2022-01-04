@@ -70,10 +70,10 @@ pub fn clip(client: Client, id: ClipRequest, time_range: Option<TimeRange>)
             }
         },
         ClipRequest::ByBroadcaster(id) => {
-            b.with_query("broadcaster_id", id);
+            b = b.with_query("broadcaster_id", id);
         },
         ClipRequest::ByGame(id) => {
-            b.with_query("game_id", id);
+            b = b.with_query("game_id", id);
         }
     } 
     return b;

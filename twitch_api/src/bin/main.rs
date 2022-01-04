@@ -61,8 +61,10 @@ async fn main() {
     println!("-----------------------------------");
 
     let mut pages = 0;
-    let mut b = helix_client.streams().streams();
-    b.with_query("first", "100");
+    let mut b = helix_client
+        .streams()
+        .get()
+        .with_query("first", "100");
     let mut res = Some(b.build_iterable());
     while let Some(request) = res {
         let page = request

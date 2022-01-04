@@ -32,13 +32,12 @@ pub fn users<S: ToString>(
         let mut b = RequestBuilder::new(client, url, Method::GET);
 
         /*TODO: This doesn't support a list of userids and clients... */
-        let mut params: BTreeMap<&str, &dyn ToString> = BTreeMap::new();
         for id in ids {
-            b.with_query("id", id);
+            b = b.with_query("id", id);
         }
 
         for login in logins {
-            b.with_query("login", login);
+            b = b.with_query("login", login);
         }
 
         return b;

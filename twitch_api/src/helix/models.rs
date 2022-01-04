@@ -196,20 +196,20 @@ pub struct Channel {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Stream {
-    id: StreamId,
-    user_id: UserId,
-    user_login: String,
-    user_name: String,
-    game_id: GameId,
-    game_name: String,
+    pub id: StreamId,
+    pub user_id: UserId,
+    pub user_login: String,
+    pub user_name: String,
+    pub game_id: GameId,
+    pub game_name: String,
     #[serde(rename = "type")]
-    stream_type: String,
-    title: String,
-    viewer_count: u32,
-    started_at: String,
-    language: String,
-    thumbnail_url: String,
+    pub stream_type: String,
+    pub title: String,
+    pub viewer_count: u32,
+    pub started_at: String,
+    pub language: String,
+    pub thumbnail_url: String,
     #[serde(deserialize_with = "null_as_empty")]
-    tag_ids: Vec<String>,
-    is_mature: bool,
+    pub tag_ids: Vec<String>,
+    pub is_mature: bool,
 }

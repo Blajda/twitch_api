@@ -15,7 +15,7 @@ impl Client {
 }
 
 impl StreamNamespace {
-    pub fn streams(self) -> RequestBuilder<PaginationContainer<Stream>> {
+    pub fn get(self) -> RequestBuilder<PaginationContainer<Stream>> {
         streams(self.client)
     }
 }

@@ -27,13 +27,14 @@ pub fn client_credentials<S: ToString>(client: Client, secret: &S)
     //TODO: Implement scopes
     let client = client.inner;
     let url = client.auth_base_uri().to_owned() + "/oauth2/token";
+    let client_id = client.id();
+
     let mut b = RequestBuilder::new(client.clone(), url, Method::POST);
 
-    let client_id = client.id();
-    b.with_query("client_id", &client_id);
-    b.with_query("client_secret", secret);
-    b.with_query("grant_type", "client_credentials");
-    b.with_query("scope", &"");
+    b = b.with_query("client_id", &client_id)
+        .with_query("client_secret", secret)
+        .with_query("grant_type", "client_credentials")
+        .with_query("scope", &"");
     
     return b;
 }

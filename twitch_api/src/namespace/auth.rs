@@ -46,10 +46,10 @@ pub fn client_credentials<S: ToString>(client: Client, secret: &S)
     let mut b = RequestBuilder::new(client.clone(), url, Method::POST);
 
     let client_id = client.id();
-    b.with_query("client_id", client_id);
-    b.with_query("client_secret", secret);
-    b.with_query("grant_type", &"client_credentials");
-    b.with_query("scope", &"");
+    b = b.with_query("client_id", client_id);
+    b = b.with_query("client_secret", secret);
+    b = b.with_query("grant_type", &"client_credentials");
+    b = b.with_query("scope", &"");
     
     return b;
 }

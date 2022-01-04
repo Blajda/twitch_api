@@ -562,8 +562,9 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> RequestBuilder<T> {
         ApiRequest::new(self.url, self.params, self.client, self.method, self.ratelimit_key)
     }
 
-    pub fn with_query<S: ToString + ?Sized, S2: ToString +?Sized>(&mut self, key: &S, value: &S2) {
-        self.params.insert(key.to_string(), value.to_string());
+    pub fn with_query<S: ToString + ?Sized, S2: ToString +?Sized>(mut self, key: &S, value: &S2) -> Self {
+        (&mut self.params).insert(key.to_string(), value.to_string());
+        return self;
     }
 
     pub fn with_ratelimit_key(&mut self, key: RatelimitKey) {

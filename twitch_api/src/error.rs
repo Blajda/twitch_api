@@ -1,33 +1,56 @@
 use hyper::Error as HyperError;
 use std::convert::From;
-use std::sync::Arc;
+use std::error::Error as StdError;
+use std::fmt::Display;
 use serde_json::Error as JsonError;
 use crate::models::Message;
 
-#[derive(Clone, Debug)]
-pub struct ConditionError {
-    inner:  Arc<Error>,
-}
-
-impl From<Error> for ConditionError {
-    fn from(other: Error) -> Self {
-        ConditionError{ inner: Arc::new(other) }
-    }
-}
 
 #[derive(Debug)]
 enum Kind {
     Hyper(HyperError),
-    ConditionError(ConditionError),
     Io(std::io::Error),
     Json(JsonError),
     AuthError(Option<Message>),
     RatelimitError(Option<Message>),
 }
 
+
 #[derive(Debug)]
 pub struct Error {
     inner: Kind
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_auth_error() {
+            write!(f, "Not authenticated to Twitch.\n Check credentials and try again")?;
+        } else if self.is_ratelimit_error() {
+            write!(f, "Twitch ratelimit hit. Try your request again")?;
+        } else {
+            write!(f, "Unable to perform Twitch API request")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl StdError for Error {
+
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match &self.inner {
+            Kind::Hyper(e) => e.source(),
+            Kind::Io(e) => e.source(),
+            Kind::Json(e) => e.source(),
+            Kind::AuthError(_) => None,
+            Kind::RatelimitError(_) => None,
+        }
+    }
+
+    fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
+        None
+    }
+
 }
 
 impl Error {
@@ -42,16 +65,14 @@ impl Error {
     pub fn is_auth_error(&self) -> bool {
         match &self.inner {
             Kind::AuthError(_) => true,
-            Kind::ConditionError(condition) => condition.inner.is_auth_error(),
-            _ => false,
+            _ => false
         }
     }
 
     pub fn is_ratelimit_error(&self) -> bool {
         match &self.inner {
             Kind::RatelimitError(_) => true,
-            Kind::ConditionError(condition) => condition.inner.is_ratelimit_error(),
-            _ => false,
+            _ => false
         }
     }
 }
@@ -76,12 +97,5 @@ impl From<JsonError> for Error {
 
     fn from(err: JsonError) -> Error {
         Error { inner: Kind::Json(err) }
-    }
-}
-
-impl From<ConditionError> for Error {
-
-    fn from(err: ConditionError) -> Error {
-        Error { inner: Kind::ConditionError(err) }
     }
 }

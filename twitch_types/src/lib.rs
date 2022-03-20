@@ -1,4 +1,3 @@
-#![feature(never_type)]
 extern crate serde;
 
 use std::convert::AsRef;
@@ -47,7 +46,7 @@ impl<T> StringId<T> {
 impl<'a, T> StringId<T> {
 
     pub fn from_str(id: &'a str) 
-        -> Result<StringId<T>, !> 
+        -> Result<StringId<T>, ()> 
     {
         Ok(StringId::new(id.to_owned()))
     }

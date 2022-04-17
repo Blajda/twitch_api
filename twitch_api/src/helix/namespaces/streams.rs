@@ -1,6 +1,6 @@
 use crate::client::RequestBuilder;
 
-use super::models::{DataContainer, PaginationContainer, Stream, User};
+use super::models::{PaginationContainer, Stream};
 use super::*;
 
 pub struct StreamMarker {}

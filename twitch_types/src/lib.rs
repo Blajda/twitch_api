@@ -28,7 +28,7 @@ pub type ClipId = StringId<Clip>;
 pub type GameId = StringId<Game>;
 pub type StreamId = StringId<Stream>;
 
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct StringId<T> {
     id: String,
     marker: PhantomData<T>
@@ -37,7 +37,7 @@ pub struct StringId<T> {
 impl<T> StringId<T> {
     pub fn new(id: String) -> StringId<T> {
         StringId { 
-            id: id,
+            id,
             marker: PhantomData,
         }
     }

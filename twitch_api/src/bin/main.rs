@@ -13,7 +13,7 @@ use twitch_api::HelixClient;
 use twitch_types::BroadcasterId;
 use twitch_types::UserId;
 
-use twitch_api::client::PaginationTrait2;
+use twitch_api::client::BidirectionalPagination;
 
 #[tokio::main]
 async fn main() {

@@ -36,18 +36,22 @@ pub struct RatelimitMap {
     pub inner: HashMap<RatelimitKey, BucketLimiter>,
 }
 
-const API_BASE_URI: &'static str = "https://api.twitch.tv";
-const AUTH_BASE_URI: &'static str = "https://id.twitch.tv";
+const API_BASE_URI: &str = "https://api.twitch.tv";
+const AUTH_BASE_URI: &str = "https://id.twitch.tv";
 
-pub trait PaginationTrait {
+/// Endpoint supports multiple pages of results
+pub trait ForwardPagination {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
 }
 
-pub trait PaginationTrait2<T> {
+/// Endpoint supports multiple pages of results.
+/// Can move backwards given the current cursor
+pub trait BidirectionalPagination<T> {
     fn next(&self) -> Option<IterableApiRequest<T>>;
     fn prev(&self) -> Option<IterableApiRequest<T>>;
 }
 
+/// Internal use only. Used to set attributes for bidirectional pagination
 pub trait PaginationContrainerTrait {
     fn set_last_cursor(&mut self, cursor: String);
     fn set_last_direction(&mut self, forward: bool);
@@ -491,7 +495,7 @@ pub struct RequestRef {
     url: String,
     params: BTreeMap<String, String>,
     client: Client,
-    ratelimit: Option<RatelimitKey>,
+    ratelimit: Option<BucketLimiter>,
     method: Method,
 }
 
@@ -501,7 +505,7 @@ impl RequestRef {
         params: BTreeMap<String, String>,
         client: Client,
         method: Method,
-        ratelimit: Option<RatelimitKey>,
+        ratelimit: Option<BucketLimiter>,
     ) -> RequestRef {
         /*
         let mut owned_params = BTreeMap::new();
@@ -511,11 +515,11 @@ impl RequestRef {
         */
 
         RequestRef {
-            url: url,
-            params: params,
-            client: client,
-            method: method,
-            ratelimit: ratelimit,
+            url,
+            params,
+            client,
+            method,
+            ratelimit,
         }
     }
 }
@@ -534,18 +538,20 @@ pub struct RequestBuilder<T> {
     params: BTreeMap<String, String>,
     client: Client,
     method: Method,
-    ratelimit_key: Option<RatelimitKey>,
+    ratelimit: Option<BucketLimiter>,
     ratelimit_cost: u32,
     _marker: PhantomData<T>,
 }
 
-impl<T: DeserializeOwned + PaginationTrait + 'static + Send> RequestBuilder<T> {
+impl<T: DeserializeOwned + ForwardPagination + 'static + Send> RequestBuilder<T> {
     pub fn new(client: Client, url: String, method: Method) -> Self {
         RequestBuilder {
             url: url,
             params: BTreeMap::new(),
+            ratelimit: (&client)
+                .ratelimit(RatelimitKey::Default)
+                .map(|m| m.to_owned()),
             client: client,
-            ratelimit_key: Some(RatelimitKey::Default),
             ratelimit_cost: 1,
             method: method,
             _marker: PhantomData,
@@ -558,7 +564,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> RequestBuilder<T> {
             self.params,
             self.client,
             self.method,
-            self.ratelimit_key,
+            self.ratelimit,
         )
     }
 
@@ -571,8 +577,8 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> RequestBuilder<T> {
         self
     }
 
-    pub fn with_ratelimit_key(mut self, key: RatelimitKey) -> Self {
-        self.ratelimit_key = Some(key);
+    pub fn with_ratelimit(mut self, bucket: BucketLimiter) -> Self {
+        self.ratelimit = Some(bucket);
         self
     }
 
@@ -582,7 +588,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> RequestBuilder<T> {
     }
 }
 
-impl<T: DeserializeOwned + PaginationTrait + 'static + Send + HelixPagination> RequestBuilder<T> {
+impl<T: DeserializeOwned + ForwardPagination + 'static + Send + HelixPagination> RequestBuilder<T> {
     pub fn build_iterable(self) -> IterableApiRequest<T> {
         let r = self.build();
         IterableApiRequest::from_request(&r)
@@ -591,7 +597,7 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send + HelixPagination> R
 
 impl<T> IntoFuture for RequestBuilder<T>
 where
-    T: DeserializeOwned + PaginationTrait + 'static + Send,
+    T: DeserializeOwned + ForwardPagination + 'static + Send,
 {
     type Output = Result<T, Error>;
     type Future = RequestFuture<T>;
@@ -625,8 +631,8 @@ impl<T> RequestFuture<T> {
         let mut uri = request.inner.url.clone();
 
         for (key, value) in &request.inner.params {
-            if query.len() > 0 {
-                query = query + "&";
+            if !query.is_empty() {
+                query += "&";
             }
             query = query + key + "=" + value;
         }
@@ -634,16 +640,16 @@ impl<T> RequestFuture<T> {
         //Add Pagination
         if let Some(page) = &request.pagination {
             let mut key = "after";
-            if query.len() > 0 {
-                query = query + "&";
+            if !query.is_empty() {
+                query += "&";
             }
             if !request.forward {
                 key = "before"
             }
-            query = query + key + "=" + &page;
+            query = query + key + "=" + page;
         }
 
-        if query.len() > 0 {
+        if !query.is_empty() {
             uri = uri + "?" + &query;
         }
 
@@ -681,17 +687,9 @@ where
         loop {
             match &mut this.state {
                 FutureState::Init => match &this.request.inner.ratelimit {
-                    Some(key) => {
-                        let limiter = this.request.inner.client.ratelimit(key.to_owned());
-                        match limiter {
-                            Some(limit) => {
-                                let l = limit.clone();
-                                this.state = FutureState::PollRateLimit(Box::pin(l.queue(1)));
-                            }
-                            None => {
-                                this.build_request_state();
-                            }
-                        }
+                    Some(limit) => {
+                        let l = limit.clone();
+                        this.state = FutureState::PollRateLimit(Box::pin(l.queue(1)));
                     }
                     None => {
                         this.build_request_state();
@@ -792,13 +790,13 @@ impl<T> IterableApiRequest<T> {
     }
 }
 
-impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
+impl<T: DeserializeOwned + ForwardPagination + 'static + Send> ApiRequest<T> {
     pub fn new(
         url: String,
         params: BTreeMap<String, String>,
         client: Client,
         method: Method,
-        ratelimit: Option<RatelimitKey>,
+        ratelimit: Option<BucketLimiter>,
     ) -> ApiRequest<T> {
         let max_attempts = client.config().max_retrys;
         ApiRequest {
@@ -811,13 +809,13 @@ impl<T: DeserializeOwned + PaginationTrait + 'static + Send> ApiRequest<T> {
     }
 }
 
-impl<T: DeserializeOwned + PaginationTrait + 'static + Send> IterableApiRequest<T> {
+impl<T: DeserializeOwned + ForwardPagination + 'static + Send> IterableApiRequest<T> {
     pub fn new(
         url: String,
         params: BTreeMap<String, String>,
         client: Client,
         method: Method,
-        ratelimit: Option<RatelimitKey>,
+        ratelimit: Option<BucketLimiter>,
     ) -> IterableApiRequest<T> {
         let request_ref = Arc::new(RequestRef::new(url, params, client, method, ratelimit));
 

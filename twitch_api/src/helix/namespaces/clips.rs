@@ -66,7 +66,7 @@ impl Client {
 pub fn clip(
     client: Client,
     id: ClipRequest,
-    time_range: Option<TimeRange>,
+    _time_range: Option<TimeRange>,
 ) -> RequestBuilder<DataContainer<Clip>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + "/helix/clips";
@@ -74,7 +74,7 @@ pub fn clip(
 
     match id {
         ClipRequest::ByClip(ids) => {
-            for id in ids {
+            for _id in ids {
                 todo!("implement me")
                 //params.insert("id", id);
             }

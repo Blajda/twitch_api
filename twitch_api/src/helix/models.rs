@@ -3,7 +3,8 @@ extern crate serde_json;
 
 use super::namespaces::IterableApiRequest;
 use crate::client::{
-    HelixPagination, PaginationContrainerTrait, PaginationTrait, PaginationTrait2, RequestRef,
+    BidirectionalPagination, ForwardPagination, HelixPagination, PaginationContrainerTrait,
+    RequestRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer};
@@ -28,13 +29,13 @@ pub struct DataContainer<T> {
     pub data: Vec<T>,
 }
 
-impl<T> PaginationTrait for DataContainer<T> {
+impl<T> ForwardPagination for DataContainer<T> {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
         None
     }
 }
 
-impl<T> PaginationTrait for PaginationContainer<T> {
+impl<T> ForwardPagination for PaginationContainer<T> {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
         match self.pagination.as_ref() {
             Some(cursor) => match cursor.cursor.as_ref() {
@@ -48,7 +49,7 @@ impl<T> PaginationTrait for PaginationContainer<T> {
 
 impl<T> HelixPagination for PaginationContainer<T> {}
 
-impl<T> PaginationTrait2<PaginationContainer<T>> for PaginationContainer<T> {
+impl<T> BidirectionalPagination<PaginationContainer<T>> for PaginationContainer<T> {
     fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
         match self.cursor() {
             Some(cursor) => Some(IterableApiRequest::from_request2(
@@ -72,7 +73,7 @@ impl<T> PaginationTrait2<PaginationContainer<T>> for PaginationContainer<T> {
     }
 }
 
-impl PaginationTrait for Credentials {
+impl ForwardPagination for Credentials {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
         None
     }

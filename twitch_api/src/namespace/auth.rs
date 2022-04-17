@@ -1,8 +1,7 @@
-use crate::client::{ApiRequest, ClientTrait};
+use crate::client::ClientTrait;
 use crate::client::{Client, RequestBuilder};
 use crate::helix::models::Credentials;
 use hyper::Method;
-use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 pub struct Namespace<T> {
@@ -49,5 +48,5 @@ pub fn client_credentials<S: ToString>(client: Client, secret: &S) -> RequestBui
     b = b.with_query("grant_type", &"client_credentials");
     b = b.with_query("scope", &"");
 
-    return b;
+    b
 }

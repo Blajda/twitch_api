@@ -1,15 +1,15 @@
 extern crate serde_json;
 
-use crate::client::PaginationTrait;
+use crate::client::ForwardPagination;
 use crate::client::Scope;
 
-impl PaginationTrait for Credentials {
+impl ForwardPagination for Credentials {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
         None
     }
 }
 
-impl PaginationTrait for Message {
+impl ForwardPagination for Message {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
         None
     }

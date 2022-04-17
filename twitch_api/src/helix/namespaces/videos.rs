@@ -1,5 +1,5 @@
-use super::*;
 use super::models::{PaginationContainer, Video};
+use super::*;
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
@@ -15,7 +15,7 @@ impl VideosNamespace {
         by_user(self.client, user_id)
     }
 
-    pub fn for_game<S: ToString>(self, game_id: &S) 
+    pub fn for_game<S: ToString>(self, game_id: &S)
         -> IterableApiRequest<PaginationContainer<Video>> {
         for_game(self.client, game_id)
     }
@@ -28,7 +28,7 @@ impl Client {
     }
 }
 
-pub fn by_id<S: ToString>(client: Client, ids: &[S]) 
+pub fn by_id<S: ToString>(client: Client, ids: &[S])
     -> IterableApiRequest<PaginationContainer<Video>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + &String::from("/helix/videos");
@@ -42,7 +42,7 @@ pub fn by_id<S: ToString>(client: Client, ids: &[S])
                             Method::GET, Some(RatelimitKey::Default))
 }
 
-pub fn by_user<S: ToString>(client: Client, user_id: &S) 
+pub fn by_user<S: ToString>(client: Client, user_id: &S)
     -> IterableApiRequest<PaginationContainer<Video>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + &String::from("/helix/videos");
@@ -54,7 +54,7 @@ pub fn by_user<S: ToString>(client: Client, user_id: &S)
                             Method::GET, Some(RatelimitKey::Default))
 }
 
-pub fn for_game<S: ToString>(client: Client, game_id: &S) 
+pub fn for_game<S: ToString>(client: Client, game_id: &S)
     -> IterableApiRequest<PaginationContainer<Video>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + &String::from("/helix/videos");

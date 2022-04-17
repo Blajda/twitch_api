@@ -1,13 +1,13 @@
-use std::collections::BTreeMap;
-use crate::client::{Client, RequestBuilder}; 
-use crate::client::{ClientTrait, ApiRequest};
+use crate::client::{ApiRequest, ClientTrait};
+use crate::client::{Client, RequestBuilder};
 use crate::helix::models::Credentials;
-use std::marker::PhantomData;
 use hyper::Method;
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
 pub struct Namespace<T> {
     client: Client,
-    _type: PhantomData<T>
+    _type: PhantomData<T>,
 }
 
 impl<T> Namespace<T> {
@@ -23,10 +23,9 @@ pub struct Auth {}
 type AuthNamespace = Namespace<Auth>;
 
 impl AuthNamespace {
-    pub fn client_credentials(self, secret: &str) 
-        -> RequestBuilder<Credentials> {
-            client_credentials(self.client, &secret.to_owned())
-        }
+    pub fn client_credentials(self, secret: &str) -> RequestBuilder<Credentials> {
+        client_credentials(self.client, &secret.to_owned())
+    }
 }
 
 impl Client {
@@ -38,8 +37,7 @@ impl Client {
 /**
  * https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#oauth-client-credentials-flow
 */
-pub fn client_credentials<S: ToString>(client: Client, secret: &S)
-    -> RequestBuilder<Credentials> {
+pub fn client_credentials<S: ToString>(client: Client, secret: &S) -> RequestBuilder<Credentials> {
     //TODO: Implement scopes
 
     let url = client.auth_base_uri().to_owned() + "/oauth2/token";
@@ -50,6 +48,6 @@ pub fn client_credentials<S: ToString>(client: Client, secret: &S)
     b = b.with_query("client_secret", secret);
     b = b.with_query("grant_type", &"client_credentials");
     b = b.with_query("scope", &"");
-    
+
     return b;
 }

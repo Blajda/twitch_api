@@ -4,11 +4,15 @@ use crate::client::PaginationTrait;
 use crate::client::Scope;
 
 impl PaginationTrait for Credentials {
-    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
+    fn cursor<'a>(&'a self) -> Option<&'a str> {
+        None
+    }
 }
 
 impl PaginationTrait for Message {
-    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
+    fn cursor<'a>(&'a self) -> Option<&'a str> {
+        None
+    }
 }
 
 #[derive(Debug, Deserialize)]

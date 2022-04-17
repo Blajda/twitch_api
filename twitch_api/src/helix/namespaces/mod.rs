@@ -1,21 +1,21 @@
 use std::marker::PhantomData;
 
-pub use super::Client;
-pub use crate::client::{RatelimitKey, ClientTrait, ApiRequest, IterableApiRequest, ParamList};
-pub use std::collections::BTreeMap;
-pub use hyper::Method;
 pub use super::models;
+pub use super::Client;
+pub use crate::client::{ApiRequest, ClientTrait, IterableApiRequest, ParamList, RatelimitKey};
+pub use hyper::Method;
+pub use std::collections::BTreeMap;
 
-pub mod clips;
-pub mod users;
-pub mod videos;
 pub mod auth;
 pub mod channels;
+pub mod clips;
 pub mod streams;
+pub mod users;
+pub mod videos;
 
 pub struct Namespace<T> {
     client: Client,
-    _type: PhantomData<T>
+    _type: PhantomData<T>,
 }
 
 impl<T> Namespace<T> {

@@ -1,20 +1,19 @@
 extern crate dotenv;
+extern crate env_logger;
 extern crate futures;
 extern crate serde;
 extern crate tokio;
 extern crate twitch_api;
-extern crate env_logger;
 
 use futures::future::Future;
-use twitch_types::BroadcasterId;
 use std::env;
-use twitch_api::HelixClient;
-use twitch_api::ClientConfig;
 use twitch_api::client::RatelimitMap;
+use twitch_api::ClientConfig;
+use twitch_api::HelixClient;
+use twitch_types::BroadcasterId;
 use twitch_types::UserId;
 
 use twitch_api::client::PaginationTrait2;
-
 
 #[tokio::main]
 async fn main() {
@@ -29,19 +28,17 @@ async fn main() {
 
     let client_id = &env::var("TWITCH_API").unwrap();
     let client_secret = &env::var("TWITCH_SECRET").unwrap();
-    let helix_client =  HelixClient::new_with_config(client_id, config)
+    let helix_client = HelixClient::new_with_config(client_id, config)
         .authenticate(client_secret)
         .build()
         .await
         .unwrap();
 
-    let res = helix_client
-        .users()
-        .users(&[], &["penta"])
-        .await
-        .unwrap();
+    let res = helix_client.users().users(&[], &["zerkaa"]).await.unwrap();
     println!("{:?}", res);
     println!("-----------------------------------");
+
+    /*
 
     let res = helix_client
         .clips()
@@ -59,7 +56,9 @@ async fn main() {
         .unwrap();
     println!("{:?}", res);
     println!("-----------------------------------");
+    */
 
+    /*
     let mut pages = 0;
     let mut b = helix_client
         .streams()
@@ -73,8 +72,9 @@ async fn main() {
         println!("{:?}", page);
         println!("-----------------------------------");
         pages = pages + 1;
-        res = page.next(); 
+        res = page.next();
     }
+    */
 
     //println!("Total pages: {}", pages);
 }

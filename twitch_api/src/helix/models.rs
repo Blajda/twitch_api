@@ -1,13 +1,15 @@
-extern crate serde_json;
 extern crate chrono;
+extern crate serde_json;
 
-use std::sync::Arc;
-use url::Url;
-use chrono::{DateTime, Utc};
-use twitch_types::{UserId, VideoId, BroadcasterId, GameId, StreamId};
-use serde::{Deserializer, Deserialize};
-use crate::client::{PaginationTrait, PaginationContrainerTrait, RequestRef, PaginationTrait2, HelixPagination};
 use super::namespaces::IterableApiRequest;
+use crate::client::{
+    HelixPagination, PaginationContrainerTrait, PaginationTrait, PaginationTrait2, RequestRef,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Deserializer};
+use std::sync::Arc;
+use twitch_types::{BroadcasterId, GameId, StreamId, UserId, VideoId};
+use url::Url;
 
 fn null_as_empty<'de, D, T>(de: D) -> Result<Vec<T>, D::Error>
 where
@@ -23,23 +25,23 @@ where
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DataContainer<T> {
-    pub data: Vec<T>
+    pub data: Vec<T>,
 }
 
 impl<T> PaginationTrait for DataContainer<T> {
-    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
+    fn cursor<'a>(&'a self) -> Option<&'a str> {
+        None
+    }
 }
 
 impl<T> PaginationTrait for PaginationContainer<T> {
-    fn cursor<'a>(&'a self) -> Option<&'a str> { 
+    fn cursor<'a>(&'a self) -> Option<&'a str> {
         match self.pagination.as_ref() {
-            Some(cursor) => {
-                match cursor.cursor.as_ref() {
-                    Some(cursor) => Some(cursor),
-                    None => None,
-                }
+            Some(cursor) => match cursor.cursor.as_ref() {
+                Some(cursor) => Some(cursor),
+                None => None,
             },
-            None => None
+            None => None,
         }
     }
 }
@@ -49,37 +51,34 @@ impl<T> HelixPagination for PaginationContainer<T> {}
 impl<T> PaginationTrait2<PaginationContainer<T>> for PaginationContainer<T> {
     fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
         match self.cursor() {
-            Some(cursor) => {
-                Some(IterableApiRequest::from_request2(
-            self.base_request.as_ref().unwrap().clone(),
-            Some(cursor.to_owned()),
-            true
-                ))
-            },
+            Some(cursor) => Some(IterableApiRequest::from_request2(
+                self.base_request.as_ref().unwrap().clone(),
+                Some(cursor.to_owned()),
+                true,
+            )),
             None => None,
         }
     }
 
     fn prev(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
         match self.cursor() {
-            Some(cursor) => {
-                Some(IterableApiRequest::from_request2(
-            self.base_request.as_ref().unwrap().clone(),
-            Some(cursor.to_owned()),
-            false
-                ))
-            },
+            Some(cursor) => Some(IterableApiRequest::from_request2(
+                self.base_request.as_ref().unwrap().clone(),
+                Some(cursor.to_owned()),
+                false,
+            )),
             None => None,
         }
     }
 }
 
 impl PaginationTrait for Credentials {
-    fn cursor<'a>(&'a self) -> Option<&'a str> { None }
+    fn cursor<'a>(&'a self) -> Option<&'a str> {
+        None
+    }
 }
 
 impl<T> PaginationContrainerTrait for PaginationContainer<T> {
-
     fn set_last_direction(&mut self, forward: bool) {
         self.last_direction = Some(forward);
     }
@@ -98,14 +97,17 @@ pub struct PaginationContainer<T> {
     pub data: Vec<T>,
     pub pagination: Option<Cursor>,
 
-    #[serde(skip)] last_cursor: Option<String>,
-    #[serde(skip)] last_direction: Option<bool>,
-    #[serde(skip)] base_request: Option<Arc<RequestRef>>,
+    #[serde(skip)]
+    last_cursor: Option<String>,
+    #[serde(skip)]
+    last_direction: Option<bool>,
+    #[serde(skip)]
+    base_request: Option<Arc<RequestRef>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Cursor {
-    pub cursor: Option<String>
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -120,8 +122,8 @@ pub struct Video {
     #[serde(with = "url_serde")]
     pub url: Url,
     /*FIXME: Serde will attempt to parse an empty string.
-    * In this case this should be None when thumbnail_url is an empty string
-    */
+     * In this case this should be None when thumbnail_url is an empty string
+     */
     //#[serde(with = "url_serde")]
     pub thumbnail_url: String, //Option<Url>,
     pub viewable: String,

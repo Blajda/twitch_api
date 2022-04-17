@@ -1,9 +1,9 @@
-use twitch_types::{ClipId, BroadcasterId, GameId};
+use twitch_types::{BroadcasterId, ClipId, GameId};
 
 use crate::client::RequestBuilder;
 
+use super::models::{Clip, DataContainer};
 use super::*;
-use super::models::{DataContainer, Clip};
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
@@ -28,23 +28,31 @@ impl<'a> From<&'a GameId> for ClipRequest<'a> {
 }
 
 impl ClipsNamespace {
-    pub fn clip(self, id: ClipRequest, time_range: Option<TimeRange>) 
-    -> RequestBuilder<DataContainer<Clip>> {
+    pub fn clip(
+        self,
+        id: ClipRequest,
+        time_range: Option<TimeRange>,
+    ) -> RequestBuilder<DataContainer<Clip>> {
         clip(self.client, id, time_range)
     }
 
-    pub fn by_game(self, id: &GameId, time_range: Option<TimeRange>) 
-    -> RequestBuilder<DataContainer<Clip>> {
+    pub fn by_game(
+        self,
+        id: &GameId,
+        time_range: Option<TimeRange>,
+    ) -> RequestBuilder<DataContainer<Clip>> {
         by_game(self.client, id, time_range)
     }
 
-    pub fn by_broadcaster(self, id: &BroadcasterId, time_range: Option<TimeRange>) 
-    -> RequestBuilder<DataContainer<Clip>> {
+    pub fn by_broadcaster(
+        self,
+        id: &BroadcasterId,
+        time_range: Option<TimeRange>,
+    ) -> RequestBuilder<DataContainer<Clip>> {
         by_broadcaster(self.client, id, time_range)
     }
 
-    pub fn by_clips(self, ids: &[&ClipId]) 
-    -> RequestBuilder<DataContainer<Clip>> {
+    pub fn by_clips(self, ids: &[&ClipId]) -> RequestBuilder<DataContainer<Clip>> {
         by_clips(self.client, ids)
     }
 }
@@ -55,9 +63,11 @@ impl Client {
     }
 }
 
-pub fn clip(client: Client, id: ClipRequest, time_range: Option<TimeRange>) 
-    -> RequestBuilder<DataContainer<Clip>>
-{
+pub fn clip(
+    client: Client,
+    id: ClipRequest,
+    time_range: Option<TimeRange>,
+) -> RequestBuilder<DataContainer<Clip>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + "/helix/clips";
     let mut b = RequestBuilder::new(client, url, Method::GET);
@@ -68,31 +78,33 @@ pub fn clip(client: Client, id: ClipRequest, time_range: Option<TimeRange>)
                 todo!("implement me")
                 //params.insert("id", id);
             }
-        },
+        }
         ClipRequest::ByBroadcaster(id) => {
             b = b.with_query("broadcaster_id", id);
-        },
+        }
         ClipRequest::ByGame(id) => {
             b = b.with_query("game_id", id);
         }
-    } 
+    }
     return b;
 }
 
-pub fn by_game(client: Client, id: &GameId, time_range: Option<TimeRange>) 
--> RequestBuilder<DataContainer<Clip>>
-{
+pub fn by_game(
+    client: Client,
+    id: &GameId,
+    time_range: Option<TimeRange>,
+) -> RequestBuilder<DataContainer<Clip>> {
     clip(client, id.into(), time_range)
 }
 
-pub fn by_broadcaster(client: Client, id: &BroadcasterId, time_range: Option<TimeRange>) 
--> RequestBuilder<DataContainer<Clip>>
-{
+pub fn by_broadcaster(
+    client: Client,
+    id: &BroadcasterId,
+    time_range: Option<TimeRange>,
+) -> RequestBuilder<DataContainer<Clip>> {
     clip(client, id.into(), time_range)
 }
 
-pub fn by_clips(client: Client, ids: &[&ClipId]) 
--> RequestBuilder<DataContainer<Clip>>
-{
+pub fn by_clips(client: Client, ids: &[&ClipId]) -> RequestBuilder<DataContainer<Clip>> {
     clip(client, ClipRequest::ByClip(ids.into()), None)
 }

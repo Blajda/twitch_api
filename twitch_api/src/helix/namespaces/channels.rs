@@ -2,8 +2,8 @@ use twitch_types::BroadcasterId;
 
 use crate::client::RequestBuilder;
 
+use super::models::{Channel, DataContainer};
 use super::*;
-use super::models::{DataContainer, Channel};
 
 pub struct Channels {}
 type ChannelNamespace = Namespace<Channels>;
@@ -20,10 +20,7 @@ impl Client {
     }
 }
 
-
-pub fn channels(client: Client, id: &BroadcasterId) 
-    -> RequestBuilder<DataContainer<Channel>>
-{
+pub fn channels(client: Client, id: &BroadcasterId) -> RequestBuilder<DataContainer<Channel>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + "/helix/channels";
     let mut b = RequestBuilder::new(client, url, Method::GET);

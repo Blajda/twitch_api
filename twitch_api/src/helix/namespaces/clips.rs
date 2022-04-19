@@ -1,110 +1,120 @@
-use twitch_types::{BroadcasterId, ClipId, GameId};
+use chrono::{DateTime, Utc};
+use twitch_types::{BroadcasterId, GameId, UserId};
 
-use crate::client::RequestBuilder;
+use crate::client::{DefaultOpts, RequestBuilder};
 
 use super::models::{Clip, DataContainer};
 use super::*;
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
-pub struct TimeRange {}
-
-pub enum ClipRequest<'a> {
-    ByClip(&'a [&'a ClipId]),
-    ByBroadcaster(&'a BroadcasterId),
-    ByGame(&'a GameId),
-}
-
-impl<'a> From<&'a BroadcasterId> for ClipRequest<'a> {
-    fn from(id: &'a BroadcasterId) -> Self {
-        return ClipRequest::ByBroadcaster(id);
-    }
-}
-
-impl<'a> From<&'a GameId> for ClipRequest<'a> {
-    fn from(id: &'a GameId) -> Self {
-        return ClipRequest::ByGame(id);
-    }
+pub struct TimeRange {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
 }
 
 impl ClipsNamespace {
-    pub fn clip(
+    ///Get clips for a game with an optional time range
+    ///
+    ///Results are ordered by view count
+    ///
+    ///<https://dev.twitch.tv/docs/api/reference#get-clips>
+    pub fn by_game<'a, Id: Into<GameId<'a>>>(
         self,
-        id: ClipRequest,
+        id: Id,
         time_range: Option<TimeRange>,
-    ) -> RequestBuilder<DataContainer<Clip>> {
-        clip(self.client, id, time_range)
-    }
-
-    pub fn by_game(
-        self,
-        id: &GameId,
-        time_range: Option<TimeRange>,
-    ) -> RequestBuilder<DataContainer<Clip>> {
+    ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
         by_game(self.client, id, time_range)
     }
 
-    pub fn by_broadcaster(
+    ///Get clips for a broadcaster with an optional time range
+    ///
+    ///Results are ordered by view count
+    ///
+    ///<https://dev.twitch.tv/docs/api/reference#get-clips>
+    pub fn by_broadcaster<'a, Id: Into<BroadcasterId<'a>>>(
         self,
-        id: &BroadcasterId,
+        id: Id,
         time_range: Option<TimeRange>,
-    ) -> RequestBuilder<DataContainer<Clip>> {
+    ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
         by_broadcaster(self.client, id, time_range)
     }
 
-    pub fn by_clips(self, ids: &[&ClipId]) -> RequestBuilder<DataContainer<Clip>> {
+    ///Get a list of clips given by id
+    ///
+    ///<https://dev.twitch.tv/docs/api/reference#get-clips>
+    pub fn by_clips<'a, Id: ToString>(
+        self,
+        ids: &[Id],
+    ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
         by_clips(self.client, ids)
     }
 }
 
 impl Client {
+    ///Twitch's Clip Resource
+    ///
+    ///<https://dev.twitch.tv/docs/api/reference#create-clip>
     pub fn clips(&self) -> ClipsNamespace {
         ClipsNamespace::new(self)
     }
 }
 
-pub fn clip(
+fn init_clips_request_builder(
     client: Client,
-    id: ClipRequest,
-    _time_range: Option<TimeRange>,
-) -> RequestBuilder<DataContainer<Clip>> {
-    let client = client.inner;
-    let url = client.api_base_uri().to_owned() + "/helix/clips";
-    let mut b = RequestBuilder::new(client, url, Method::GET);
+    time_range: Option<TimeRange>,
+) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
+    let url = client.inner.api_base_uri().to_owned() + "/helix/clips";
+    let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 
-    match id {
-        ClipRequest::ByClip(ids) => {
-            for _id in ids {
-                todo!("implement me")
-                //params.insert("id", id);
-            }
-        }
-        ClipRequest::ByBroadcaster(id) => {
-            b = b.with_query("broadcaster_id", id);
-        }
-        ClipRequest::ByGame(id) => {
-            b = b.with_query("game_id", id);
-        }
+    if let Some(time) = time_range {
+        b = b.with_query("started_at", time.start.to_rfc3339());
+        b = b.with_query("ended_at", time.end.to_rfc3339());
     }
+
     return b;
 }
 
-pub fn by_game(
+///Get clips for a game with an optional time range
+
+///Results are ordered by view count
+///
+///<https://dev.twitch.tv/docs/api/reference#get-clips>
+pub fn by_game<'a, Id: Into<GameId<'a>>>(
     client: Client,
-    id: &GameId,
+    id: Id,
     time_range: Option<TimeRange>,
-) -> RequestBuilder<DataContainer<Clip>> {
-    clip(client, id.into(), time_range)
+) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
+    let mut b = init_clips_request_builder(client, time_range);
+    b = b.with_query("game_id", id.into());
+    b
 }
 
-pub fn by_broadcaster(
+///Get clips for a broadcaster with an optional time range
+///
+///Results are ordered by view count
+///
+///<https://dev.twitch.tv/docs/api/reference#get-clips>
+pub fn by_broadcaster<'a, Id: Into<UserId<'a>>>(
     client: Client,
-    id: &BroadcasterId,
+    id: Id,
     time_range: Option<TimeRange>,
-) -> RequestBuilder<DataContainer<Clip>> {
-    clip(client, id.into(), time_range)
+) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
+    let mut b = init_clips_request_builder(client, time_range);
+    b = b.with_query("broadcaster_id", id.into());
+    b
 }
 
-pub fn by_clips(client: Client, ids: &[&ClipId]) -> RequestBuilder<DataContainer<Clip>> {
-    clip(client, ClipRequest::ByClip(ids.into()), None)
+///Get a list of clips by their id
+///
+///<https://dev.twitch.tv/docs/api/reference#get-clips>
+pub fn by_clips<'a, Id: ToString>(
+    client: Client,
+    ids: &[Id],
+) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
+    let mut b = init_clips_request_builder(client, None);
+    for id in ids {
+        b = b.with_query("id", id.to_string());
+    }
+    b
 }

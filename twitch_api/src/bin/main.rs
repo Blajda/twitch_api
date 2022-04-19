@@ -34,10 +34,32 @@ async fn main() {
         .await
         .unwrap();
 
-    let res = helix_client.users().users(&[], &["zerkaa"]).await.unwrap();
+    let empty: &[&str; 0] = &[];
+    let res = helix_client
+        .users()
+        .users(empty, &["zerkaa"])
+        .await
+        .unwrap();
     println!("{:?}", res);
     println!("-----------------------------------");
 
+    let res = helix_client
+        .clips()
+        .by_broadcaster("13884994", None)
+        .await
+        .unwrap();
+    println!("{:?}", res);
+    println!("-----------------------------------");
+
+    let res = helix_client
+        .videos()
+        .by_user("13884994")
+        .r#type("all")
+        .period("week")
+        .await
+        .unwrap();
+    println!("{:?}", res);
+    println!("-----------------------------------");
     /*
 
     let res = helix_client

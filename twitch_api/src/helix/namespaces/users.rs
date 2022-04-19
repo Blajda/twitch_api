@@ -8,10 +8,10 @@ pub struct Users {}
 type UsersNamespace = Namespace<Users>;
 
 impl UsersNamespace {
-    pub fn users<S: ToString>(
+    pub fn users<S1: ToString, S2: ToString>(
         self,
-        ids: &[S],
-        logins: &[S],
+        ids: &[S1],
+        logins: &[S2],
     ) -> RequestBuilder<DataContainer<User>> {
         users(self.client, ids, logins)
     }
@@ -26,22 +26,21 @@ impl Client {
 /**
  * https://dev.twitch.tv/docs/api/reference#get-users
  */
-pub fn users<S: ToString>(
+pub fn users<S1: ToString, S2: ToString>(
     client: Client,
-    ids: &[S],
-    logins: &[S],
+    ids: &[S1],
+    logins: &[S2],
 ) -> RequestBuilder<DataContainer<User>> {
     let client = client.inner;
     let url = client.api_base_uri().to_owned() + &String::from("/helix/users");
     let mut b = RequestBuilder::new(client, url, Method::GET);
 
-    /*TODO: This doesn't support a list of userids and clients... */
     for id in ids {
-        b = b.with_query("id", id);
+        b = b.with_query("id", id.to_string());
     }
 
     for login in logins {
-        b = b.with_query("login", login);
+        b = b.with_query("login", login.to_string());
     }
 
     return b;

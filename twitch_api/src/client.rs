@@ -44,6 +44,8 @@ pub trait ForwardPagination {
     fn cursor<'a>(&'a self) -> Option<&'a str>;
 }
 
+pub struct DefaultOpts {}
+
 /// Endpoint supports multiple pages of results.
 /// Can move backwards given the current cursor
 pub trait BidirectionalPagination<T> {
@@ -493,7 +495,7 @@ impl AuthClientBuilder {
 #[derive(Debug)]
 pub struct RequestRef {
     url: String,
-    params: BTreeMap<String, String>,
+    params: Vec<(String, String)>,
     client: Client,
     ratelimit: Option<BucketLimiter>,
     method: Method,
@@ -502,18 +504,11 @@ pub struct RequestRef {
 impl RequestRef {
     pub fn new(
         url: String,
-        params: BTreeMap<String, String>,
+        params: Vec<(String, String)>,
         client: Client,
         method: Method,
         ratelimit: Option<BucketLimiter>,
     ) -> RequestRef {
-        /*
-        let mut owned_params = BTreeMap::new();
-        for (key, value) in params {
-            owned_params.insert(key.to_string(), value.to_string());
-        }
-        */
-
         RequestRef {
             url,
             params,
@@ -533,47 +528,24 @@ pub struct ApiRequest<T> {
     _marker: PhantomData<T>,
 }
 
-pub struct RequestBuilder<T> {
+pub struct RequestBuilder<T, Opts = DefaultOpts> {
     url: String,
-    params: BTreeMap<String, String>,
+    params: Vec<(String, String)>,
     client: Client,
     method: Method,
     ratelimit: Option<BucketLimiter>,
     ratelimit_cost: u32,
     _marker: PhantomData<T>,
+    _opts: PhantomData<Opts>,
 }
 
-impl<T: DeserializeOwned + ForwardPagination + 'static + Send> RequestBuilder<T> {
-    pub fn new(client: Client, url: String, method: Method) -> Self {
-        RequestBuilder {
-            url: url,
-            params: BTreeMap::new(),
-            ratelimit: (&client)
-                .ratelimit(RatelimitKey::Default)
-                .map(|m| m.to_owned()),
-            client: client,
-            ratelimit_cost: 1,
-            method: method,
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn build(self) -> ApiRequest<T> {
-        ApiRequest::new(
-            self.url,
-            self.params,
-            self.client,
-            self.method,
-            self.ratelimit,
-        )
-    }
-
-    pub fn with_query<S: ToString + ?Sized, S2: ToString + ?Sized>(
+impl<T, Opt> RequestBuilder<T, Opt> {
+    pub fn with_query<S: Into<String> + ?Sized, S2: Into<String> + ?Sized>(
         mut self,
-        key: &S,
-        value: &S2,
+        key: S,
+        value: S2,
     ) -> Self {
-        (&mut self.params).insert(key.to_string(), value.to_string());
+        (&mut self.params).push((key.into(), value.into()));
         self
     }
 
@@ -588,14 +560,43 @@ impl<T: DeserializeOwned + ForwardPagination + 'static + Send> RequestBuilder<T>
     }
 }
 
-impl<T: DeserializeOwned + ForwardPagination + 'static + Send + HelixPagination> RequestBuilder<T> {
+impl<T: DeserializeOwned + ForwardPagination + 'static + Send, Opt> RequestBuilder<T, Opt> {
+    pub fn new(client: Client, url: String, method: Method) -> Self {
+        RequestBuilder {
+            url: url,
+            params: Vec::new(),
+            ratelimit: (&client)
+                .ratelimit(RatelimitKey::Default)
+                .map(|m| m.to_owned()),
+            client: client,
+            ratelimit_cost: 1,
+            method: method,
+            _marker: PhantomData,
+            _opts: PhantomData,
+        }
+    }
+
+    pub fn build(self) -> ApiRequest<T> {
+        ApiRequest::new(
+            self.url,
+            self.params,
+            self.client,
+            self.method,
+            self.ratelimit,
+        )
+    }
+}
+
+impl<T: DeserializeOwned + ForwardPagination + 'static + Send + HelixPagination, Opt>
+    RequestBuilder<T, Opt>
+{
     pub fn build_iterable(self) -> IterableApiRequest<T> {
         let r = self.build();
         IterableApiRequest::from_request(&r)
     }
 }
 
-impl<T> IntoFuture for RequestBuilder<T>
+impl<T, Opt> IntoFuture for RequestBuilder<T, Opt>
 where
     T: DeserializeOwned + ForwardPagination + 'static + Send,
 {
@@ -793,7 +794,7 @@ impl<T> IterableApiRequest<T> {
 impl<T: DeserializeOwned + ForwardPagination + 'static + Send> ApiRequest<T> {
     pub fn new(
         url: String,
-        params: BTreeMap<String, String>,
+        params: Vec<(String, String)>,
         client: Client,
         method: Method,
         ratelimit: Option<BucketLimiter>,
@@ -812,7 +813,7 @@ impl<T: DeserializeOwned + ForwardPagination + 'static + Send> ApiRequest<T> {
 impl<T: DeserializeOwned + ForwardPagination + 'static + Send> IterableApiRequest<T> {
     pub fn new(
         url: String,
-        params: BTreeMap<String, String>,
+        params: Vec<(String, String)>,
         client: Client,
         method: Method,
         ratelimit: Option<BucketLimiter>,

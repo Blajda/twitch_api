@@ -9,18 +9,28 @@ pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
 
 impl<T> RequestBuilder<T, Videos> {
+    
+    ///Language of the video being queried. Limit: 1. A language value must be
+    ///either the ISO 639-1 two-letter code for a supported stream language or
+    ///“other”.
     pub fn language<S: Into<String>>(self, lang: S) -> Self {
         self.with_query("language", lang)
     }
 
+    ///Period during which the video was created. Valid values: "all", "day",
+    ///"week", "month". Default: "all".
     pub fn period<S: Into<String>>(self, period: S) -> Self {
         self.with_query("period", period)
     }
 
+    ///Sort order of the videos. Valid values: "time", "trending", "views".
+    ///Default: "time".
     pub fn sort<S: Into<String>>(self, sort: S) -> Self {
         self.with_query("sort", sort)
     }
 
+    ///Type of video. Valid values: "all", "upload", "archive", "highlight".
+    ///Default: "all".
     pub fn r#type<S: Into<String>>(self, t: S) -> Self {
         self.with_query("type", t)
     }
@@ -56,7 +66,7 @@ pub fn by_id<S: ToString>(
     client: Client,
     ids: &[S],
 ) -> RequestBuilder<PaginationContainer<Video>, DefaultOpts> {
-    let url = client.inner.api_base_uri().to_owned() + &String::from("/helix/videos");
+    let url = client.inner.api_base_uri().to_owned() + &String::from("/videos");
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 
     for id in ids {
@@ -70,7 +80,7 @@ pub fn by_user<'a, Id: Into<UserId<'a>>>(
     client: Client,
     user_id: Id,
 ) -> RequestBuilder<PaginationContainer<Video>, Videos> {
-    let url = client.inner.api_base_uri().to_owned() + &String::from("/helix/videos");
+    let url = client.inner.api_base_uri().to_owned() + &String::from("/videos");
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 
     b = b.with_query("user_id", user_id.into());
@@ -82,7 +92,7 @@ pub fn for_game<'a, Id: Into<GameId<'a>>>(
     client: Client,
     game_id: Id,
 ) -> RequestBuilder<PaginationContainer<Video>, Videos> {
-    let url = client.inner.api_base_uri().to_owned() + &String::from("/helix/videos");
+    let url = client.inner.api_base_uri().to_owned() + &String::from("/videos");
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 
     b = b.with_query("game_id", game_id.into());

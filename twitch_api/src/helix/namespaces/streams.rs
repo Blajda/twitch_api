@@ -20,7 +20,7 @@ impl StreamNamespace {
 
 pub fn streams(client: Client) -> RequestBuilder<PaginationContainer<Stream>> {
     let client = client.inner;
-    let url = client.api_base_uri().to_owned() + "/helix/streams";
+    let url = client.api_base_uri().to_owned() + "/streams";
     let b = RequestBuilder::new(client, url, Method::GET);
 
     return b;

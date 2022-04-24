@@ -1,16 +1,26 @@
-use chrono::{DateTime, Utc};
 use twitch_types::{BroadcasterId, GameId, UserId};
-
 use crate::client::{DefaultOpts, RequestBuilder};
-
 use super::models::{Clip, DataContainer};
 use super::*;
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
-pub struct TimeRange {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
+
+impl<T> RequestBuilder<T, Clips> {
+    ///Ending date/time for returned clips, in RFC3339 format. (Note that the
+    ///seconds value is ignored.) If this is specified, started_at also must be
+    ///specified; otherwise, the time period is ignored.
+    pub fn ended_at<S: Into<String>>(self, end: S) -> Self {
+        self.with_query("ended_at", end)
+    }
+
+    ///Starting date/time for returned clips, in RFC3339 format. (The seconds
+    ///value is ignored.) If this is specified, ended_at also should be
+    ///specified; otherwise, the ended_at date/time will be 1 week after the
+    ///started_at value.
+    pub fn started_at<S: Into<String>>(self, start: S) -> Self {
+        self.with_query("started_at", start)
+    }
 }
 
 impl ClipsNamespace {
@@ -22,9 +32,8 @@ impl ClipsNamespace {
     pub fn by_game<'a, Id: Into<GameId<'a>>>(
         self,
         id: Id,
-        time_range: Option<TimeRange>,
-    ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
-        by_game(self.client, id, time_range)
+    ) -> RequestBuilder<DataContainer<Clip>, Clips> {
+        by_game(self.client, id)
     }
 
     ///Get clips for a broadcaster with an optional time range
@@ -35,9 +44,8 @@ impl ClipsNamespace {
     pub fn by_broadcaster<'a, Id: Into<BroadcasterId<'a>>>(
         self,
         id: Id,
-        time_range: Option<TimeRange>,
-    ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
-        by_broadcaster(self.client, id, time_range)
+    ) -> RequestBuilder<DataContainer<Clip>, Clips> {
+        by_broadcaster(self.client, id)
     }
 
     ///Get a list of clips given by id
@@ -60,32 +68,23 @@ impl Client {
     }
 }
 
-fn init_clips_request_builder(
-    client: Client,
-    time_range: Option<TimeRange>,
-) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
-    let url = client.inner.api_base_uri().to_owned() + "/helix/clips";
-    let mut b = RequestBuilder::new(client.inner, url, Method::GET);
-
-    if let Some(time) = time_range {
-        b = b.with_query("started_at", time.start.to_rfc3339());
-        b = b.with_query("ended_at", time.end.to_rfc3339());
-    }
+fn init_clips_request_builder(client: Client) -> RequestBuilder<DataContainer<Clip>, Clips> {
+    let url = client.inner.api_base_uri().to_string() + "clips";
+    let b = RequestBuilder::new(client.inner, url, Method::GET);
 
     return b;
 }
 
 ///Get clips for a game with an optional time range
-
+///
 ///Results are ordered by view count
 ///
 ///<https://dev.twitch.tv/docs/api/reference#get-clips>
 pub fn by_game<'a, Id: Into<GameId<'a>>>(
     client: Client,
     id: Id,
-    time_range: Option<TimeRange>,
-) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
-    let mut b = init_clips_request_builder(client, time_range);
+) -> RequestBuilder<DataContainer<Clip>, Clips> {
+    let mut b = init_clips_request_builder(client);
     b = b.with_query("game_id", id.into());
     b
 }
@@ -98,9 +97,8 @@ pub fn by_game<'a, Id: Into<GameId<'a>>>(
 pub fn by_broadcaster<'a, Id: Into<UserId<'a>>>(
     client: Client,
     id: Id,
-    time_range: Option<TimeRange>,
-) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
-    let mut b = init_clips_request_builder(client, time_range);
+) -> RequestBuilder<DataContainer<Clip>, Clips> {
+    let mut b = init_clips_request_builder(client);
     b = b.with_query("broadcaster_id", id.into());
     b
 }
@@ -112,7 +110,8 @@ pub fn by_clips<'a, Id: ToString>(
     client: Client,
     ids: &[Id],
 ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
-    let mut b = init_clips_request_builder(client, None);
+    let url = client.inner.api_base_uri().to_string() + "/clips";
+    let mut b = RequestBuilder::new(client.inner, url, Method::GET);
     for id in ids {
         b = b.with_query("id", id.to_string());
     }

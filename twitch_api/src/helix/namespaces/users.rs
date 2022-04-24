@@ -32,7 +32,7 @@ pub fn users<S1: ToString, S2: ToString>(
     logins: &[S2],
 ) -> RequestBuilder<DataContainer<User>> {
     let client = client.inner;
-    let url = client.api_base_uri().to_owned() + &String::from("/helix/users");
+    let url = client.api_base_uri().to_string() + "/users";
     let mut b = RequestBuilder::new(client, url, Method::GET);
 
     for id in ids {

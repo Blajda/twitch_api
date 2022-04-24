@@ -28,7 +28,7 @@ pub fn channels<'a, Id: Into<BroadcasterId<'a>>>(
     id: Id,
 ) -> RequestBuilder<DataContainer<Channel>> {
     let client = client.inner;
-    let url = client.api_base_uri().to_owned() + "/helix/channels";
+    let url = client.api_base_uri().to_owned() + "/channels";
     let mut b = RequestBuilder::new(client, url, Method::GET);
     b = b.with_query("broadcaster_id", id.into());
 

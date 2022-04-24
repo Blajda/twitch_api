@@ -36,7 +36,8 @@ pub struct RatelimitMap {
     pub inner: HashMap<RatelimitKey, BucketLimiter>,
 }
 
-const API_BASE_URI: &str = "https://api.twitch.tv";
+const API_HELIX_BASE_URI: &str = "https://api.twitch.tv/helix";
+const API_UNIT_BASE_URI: &str = "http://localhost:8080/units";
 const AUTH_BASE_URI: &str = "https://id.twitch.tv";
 
 /// Endpoint supports multiple pages of results
@@ -220,7 +221,7 @@ impl Default for ClientConfig {
 
         ClientConfig {
             hyper: hyper,
-            api_base_uri: API_BASE_URI.to_owned(),
+            api_base_uri: API_HELIX_BASE_URI.to_owned(),
             auth_base_uri: AUTH_BASE_URI.to_owned(),
             ratelimits,
             max_retrys: 1,

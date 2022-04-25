@@ -42,7 +42,7 @@ pub fn client_credentials<S: Into<String>>(
 ) -> RequestBuilder<Credentials, DefaultOpts> {
     //TODO: Implement scopes
 
-    let url = client.auth_base_uri().to_owned() + "/oauth2/token";
+    let url = client.auth_base_uri().to_owned() + "/token";
     let mut b = RequestBuilder::new(client.clone(), url, Method::POST);
 
     let client_id = client.id();

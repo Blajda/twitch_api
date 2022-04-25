@@ -8,7 +8,7 @@ pub mod limiter;
 pub mod models;
 pub mod namespaces;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Client {
     inner: GenericClient,
 }
@@ -21,13 +21,13 @@ impl Client {
         }
     }
 
-    pub fn new_with_config(id: &str, config: ClientConfig) -> Client {
+    pub fn new_with_config<S: Into<String>>(id: S, config: ClientConfig) -> Client {
         Client {
             inner: GenericClient::new(id, config, Version::Helix),
         }
     }
 
-    pub fn authenticate(self, secret: &str) -> AuthClientBuilder {
+    pub fn authenticate<S: Into<String>>(self, secret: S) -> AuthClientBuilder {
         AuthClientBuilder::new(self, secret)
     }
 
@@ -67,7 +67,7 @@ pub struct AuthClientBuilder {
 }
 
 impl AuthClientBuilder {
-    pub fn new(client: Client, secret: &str) -> AuthClientBuilder {
+    pub fn new<S: Into<String>>(client: Client, secret: S) -> AuthClientBuilder {
         AuthClientBuilder {
             inner: GenericAuthClientBuilder::new(client.inner, secret),
         }

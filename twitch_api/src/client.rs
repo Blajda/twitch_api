@@ -37,8 +37,7 @@ pub struct RatelimitMap {
 }
 
 const API_HELIX_BASE_URI: &str = "https://api.twitch.tv/helix";
-const API_UNIT_BASE_URI: &str = "http://localhost:8080/units";
-const AUTH_BASE_URI: &str = "https://id.twitch.tv";
+const AUTH_BASE_URI: &str = "https://id.twitch.tv/oauth2";
 
 /// Endpoint supports multiple pages of results
 pub trait ForwardPagination {
@@ -394,10 +393,10 @@ struct AuthStateRef {
 }
 
 impl Client {
-    pub fn new(id: &str, config: ClientConfig, version: Version) -> Client {
+    pub fn new<S: Into<String>>(id: S, config: ClientConfig, version: Version) -> Client {
         Client {
             inner: Arc::new(ClientType::Unauth(UnauthClient {
-                id: id.to_owned(),
+                id: id.into(),
                 config: config,
                 version: version,
             })),
@@ -446,11 +445,11 @@ pub struct AuthClientBuilder {
 }
 
 impl AuthClientBuilder {
-    pub fn new(client: Client, secret: &str) -> AuthClientBuilder {
+    pub fn new<S: Into<String>>(client: Client, secret: S) -> AuthClientBuilder {
         AuthClientBuilder {
             scopes: HashSet::new(),
             client: client,
-            secret: secret.to_owned(),
+            secret: secret.into(),
             token: None,
         }
     }

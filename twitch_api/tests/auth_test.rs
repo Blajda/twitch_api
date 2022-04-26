@@ -1,15 +1,14 @@
 mod common;
 
 use std::error::Error;
-use twitch_api::{HelixClient};
-
+use twitch_api::HelixClient;
 
 #[tokio::test]
 async fn test_helix_auth_ok() -> Result<(), Box<dyn Error>> {
     let context = common::setup()?;
 
     let mock_client = &context.mock_client;
-    let clients  = &mock_client.clients().await?;
+    let clients = &mock_client.clients().await?;
     let client_id = &clients.data[0].id;
     let client_secret = &clients.data[0].secret;
 
@@ -27,7 +26,7 @@ async fn test_helix_auth_failure() -> Result<(), Box<dyn Error>> {
     let context = common::setup()?;
 
     let mock_client = &context.mock_client;
-    let clients  = &mock_client.clients().await?;
+    let clients = &mock_client.clients().await?;
     let client_id = &clients.data[0].id;
     let client_secret = "INVALID_SECRET";
 

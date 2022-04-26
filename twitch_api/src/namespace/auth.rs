@@ -22,7 +22,7 @@ pub struct Auth {}
 type AuthNamespace = Namespace<Auth>;
 
 impl AuthNamespace {
-    pub fn client_credentials(self, secret: &str) -> RequestBuilder<Credentials, DefaultOpts> {
+    pub fn client_credentials(self, secret: &str) -> RequestBuilder<Credentials> {
         client_credentials(self.client, &secret.to_owned())
     }
 }
@@ -39,7 +39,7 @@ impl Client {
 pub fn client_credentials<S: Into<String>>(
     client: Client,
     secret: S,
-) -> RequestBuilder<Credentials, DefaultOpts> {
+) -> RequestBuilder<Credentials> {
     //TODO: Implement scopes
 
     let url = client.auth_base_uri().to_owned() + "/token";

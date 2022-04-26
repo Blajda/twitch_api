@@ -49,8 +49,8 @@ impl<T> ForwardPagination for PaginationContainer<T> {
 
 impl<T> HelixPagination for PaginationContainer<T> {}
 
-impl<T> BidirectionalPagination<PaginationContainer<T>> for PaginationContainer<T> {
-    fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
+impl<T, E> BidirectionalPagination<PaginationContainer<T>, E> for PaginationContainer<T> {
+    fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>, E>> {
         match self.cursor() {
             Some(cursor) => Some(IterableApiRequest::from_request2(
                 self.base_request.as_ref().unwrap().clone(),
@@ -61,7 +61,7 @@ impl<T> BidirectionalPagination<PaginationContainer<T>> for PaginationContainer<
         }
     }
 
-    fn prev(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>>> {
+    fn prev(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>, E>> {
         match self.cursor() {
             Some(cursor) => Some(IterableApiRequest::from_request2(
                 self.base_request.as_ref().unwrap().clone(),
@@ -215,4 +215,11 @@ pub struct Stream {
     #[serde(deserialize_with = "null_as_empty")]
     pub tag_ids: Vec<String>,
     pub is_mature: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ApiError {
+    pub error: String,
+    pub status: u32,
+    pub message: String,
 }

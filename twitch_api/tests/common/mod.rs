@@ -1,12 +1,14 @@
-
 use std::error::Error;
 
 use twitch_api::ClientConfig;
 
-use self::{twitch_cli::{MockServer, MockServerBuilder}, mock_client::MockClient};
+use self::{
+    mock_client::MockClient,
+    twitch_cli::{MockServer, MockServerBuilder},
+};
 
-pub mod twitch_cli;
 pub mod mock_client;
+pub mod twitch_cli;
 
 pub struct TestContext {
     pub server: MockServer,

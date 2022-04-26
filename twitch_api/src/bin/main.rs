@@ -34,18 +34,20 @@ async fn main() {
         .await
         .unwrap();
 
+    //13884994
+
     let empty: &[&str; 0] = &[];
     let res = helix_client
         .users()
-        .users(empty, &["zerkaa"])
-        .await
-        .unwrap();
+        .users(&["1", "2", "100", "13884994", "32434234234423"], empty)
+        .await;
     println!("{:?}", res);
     println!("-----------------------------------");
 
+    /*
     let res = helix_client
         .clips()
-        .by_broadcaster("13884994", None)
+        .by_broadcaster("13884994")
         .await
         .unwrap();
     println!("{:?}", res);
@@ -60,6 +62,7 @@ async fn main() {
         .unwrap();
     println!("{:?}", res);
     println!("-----------------------------------");
+    */
     /*
 
     let res = helix_client

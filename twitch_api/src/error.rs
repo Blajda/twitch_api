@@ -1,3 +1,4 @@
+use crate::helix::models::ApiError;
 use crate::models::Message;
 use hyper::Error as HyperError;
 use serde_json::Error as JsonError;
@@ -13,6 +14,7 @@ pub(crate) enum Kind {
     AuthError(Option<Message>),
     RatelimitError(Option<Message>),
     RatelimitCostError(String),
+    GeneralApiError(ApiError),
 }
 
 #[derive(Debug)]
@@ -46,6 +48,7 @@ impl StdError for Error {
             Kind::AuthError(_) => None,
             Kind::RatelimitError(_) => None,
             Kind::RatelimitCostError(_) => None,
+            Kind::GeneralApiError(_) => None,
         }
     }
 
@@ -102,6 +105,14 @@ impl From<JsonError> for Error {
     fn from(err: JsonError) -> Error {
         Error {
             inner: Kind::Json(err),
+        }
+    }
+}
+
+impl From<ApiError> for Error {
+    fn from(err: ApiError) -> Error {
+        Error {
+            inner: Kind::GeneralApiError(err),
         }
     }
 }

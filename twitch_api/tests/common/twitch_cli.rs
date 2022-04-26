@@ -1,9 +1,9 @@
-use std::process::{Command, Child};
 use std::io::Result;
+use std::process::{Child, Command};
 use std::time::Duration;
 
-pub struct MockServer { 
-    child: Child
+pub struct MockServer {
+    child: Child,
 }
 
 pub struct MockServerBuilder {
@@ -12,7 +12,6 @@ pub struct MockServerBuilder {
 }
 
 impl Default for MockServerBuilder {
-
     fn default() -> Self {
         MockServerBuilder {
             port: 8080,
@@ -22,7 +21,6 @@ impl Default for MockServerBuilder {
 }
 
 impl MockServerBuilder {
-
     pub fn port(&mut self, port: u32) -> &mut Self {
         self.port = port;
         self
@@ -43,17 +41,14 @@ impl MockServerBuilder {
         command.arg("start");
 
         let child = command.spawn()?;
-        //TODO: Capture writes to stdout and look for string "Mock server started" or timeout 
+        //TODO: Capture writes to stdout and look for string "Mock server started" or timeout
         //writes should still be passed to the underlying destination
         std::thread::sleep(Duration::from_secs(4));
-        Ok(MockServer {
-            child
-        })
+        Ok(MockServer { child })
     }
 }
 
 impl Drop for MockServer {
-
     fn drop(&mut self) {
         let _r = self.child.kill();
     }

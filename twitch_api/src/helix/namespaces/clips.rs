@@ -1,7 +1,7 @@
-use twitch_types::{BroadcasterId, GameId, UserId};
-use crate::client::{DefaultOpts, RequestBuilder};
-use super::models::{Clip, DataContainer};
+use super::models::{Clip, DataContainer, ApiError};
 use super::*;
+use crate::client::{DefaultOpts, RequestBuilder};
+use twitch_types::{BroadcasterId, GameId, UserId};
 
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
@@ -32,7 +32,7 @@ impl ClipsNamespace {
     pub fn by_game<'a, Id: Into<GameId<'a>>>(
         self,
         id: Id,
-    ) -> RequestBuilder<DataContainer<Clip>, Clips> {
+    ) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
         by_game(self.client, id)
     }
 
@@ -44,7 +44,7 @@ impl ClipsNamespace {
     pub fn by_broadcaster<'a, Id: Into<BroadcasterId<'a>>>(
         self,
         id: Id,
-    ) -> RequestBuilder<DataContainer<Clip>, Clips> {
+    ) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
         by_broadcaster(self.client, id)
     }
 
@@ -54,7 +54,7 @@ impl ClipsNamespace {
     pub fn by_clips<'a, Id: ToString>(
         self,
         ids: &[Id],
-    ) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
+    ) -> RequestBuilder<DataContainer<Clip>, ApiError, DefaultOpts> {
         by_clips(self.client, ids)
     }
 }
@@ -68,7 +68,7 @@ impl Client {
     }
 }
 
-fn init_clips_request_builder(client: Client) -> RequestBuilder<DataContainer<Clip>, Clips> {
+fn init_clips_request_builder(client: Client) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
     let url = client.inner.api_base_uri().to_string() + "clips";
     let b = RequestBuilder::new(client.inner, url, Method::GET);
 
@@ -83,7 +83,7 @@ fn init_clips_request_builder(client: Client) -> RequestBuilder<DataContainer<Cl
 pub fn by_game<'a, Id: Into<GameId<'a>>>(
     client: Client,
     id: Id,
-) -> RequestBuilder<DataContainer<Clip>, Clips> {
+) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
     let mut b = init_clips_request_builder(client);
     b = b.with_query("game_id", id.into());
     b
@@ -97,7 +97,7 @@ pub fn by_game<'a, Id: Into<GameId<'a>>>(
 pub fn by_broadcaster<'a, Id: Into<UserId<'a>>>(
     client: Client,
     id: Id,
-) -> RequestBuilder<DataContainer<Clip>, Clips> {
+) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
     let mut b = init_clips_request_builder(client);
     b = b.with_query("broadcaster_id", id.into());
     b
@@ -109,7 +109,7 @@ pub fn by_broadcaster<'a, Id: Into<UserId<'a>>>(
 pub fn by_clips<'a, Id: ToString>(
     client: Client,
     ids: &[Id],
-) -> RequestBuilder<DataContainer<Clip>, DefaultOpts> {
+) -> RequestBuilder<DataContainer<Clip>, ApiError, DefaultOpts> {
     let url = client.inner.api_base_uri().to_string() + "/clips";
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
     for id in ids {

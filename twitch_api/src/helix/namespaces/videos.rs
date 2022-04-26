@@ -2,14 +2,13 @@ use twitch_types::{GameId, UserId};
 
 use crate::client::{DefaultOpts, RequestBuilder};
 
-use super::models::{PaginationContainer, Video};
+use super::models::{ApiError, PaginationContainer, Video};
 use super::*;
 
 pub struct Videos {}
 type VideosNamespace = Namespace<Videos>;
 
-impl<T> RequestBuilder<T, Videos> {
-    
+impl<T, E> RequestBuilder<T, E, Videos> {
     ///Language of the video being queried. Limit: 1. A language value must be
     ///either the ISO 639-1 two-letter code for a supported stream language or
     ///“other”.
@@ -44,14 +43,14 @@ impl VideosNamespace {
     pub fn by_user<'a, S: Into<UserId<'a>>>(
         self,
         user_id: S,
-    ) -> RequestBuilder<PaginationContainer<Video>, Videos> {
+    ) -> RequestBuilder<PaginationContainer<Video>, ApiError, Videos> {
         by_user(self.client, user_id)
     }
 
     pub fn for_game<'a, S: Into<GameId<'a>>>(
         self,
         game_id: S,
-    ) -> RequestBuilder<PaginationContainer<Video>, Videos> {
+    ) -> RequestBuilder<PaginationContainer<Video>, ApiError, Videos> {
         for_game(self.client, game_id)
     }
 }
@@ -65,7 +64,7 @@ impl Client {
 pub fn by_id<S: ToString>(
     client: Client,
     ids: &[S],
-) -> RequestBuilder<PaginationContainer<Video>, DefaultOpts> {
+) -> RequestBuilder<PaginationContainer<Video>, ApiError, DefaultOpts> {
     let url = client.inner.api_base_uri().to_owned() + &String::from("/videos");
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 
@@ -79,7 +78,7 @@ pub fn by_id<S: ToString>(
 pub fn by_user<'a, Id: Into<UserId<'a>>>(
     client: Client,
     user_id: Id,
-) -> RequestBuilder<PaginationContainer<Video>, Videos> {
+) -> RequestBuilder<PaginationContainer<Video>, ApiError, Videos> {
     let url = client.inner.api_base_uri().to_owned() + &String::from("/videos");
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 
@@ -91,7 +90,7 @@ pub fn by_user<'a, Id: Into<UserId<'a>>>(
 pub fn for_game<'a, Id: Into<GameId<'a>>>(
     client: Client,
     game_id: Id,
-) -> RequestBuilder<PaginationContainer<Video>, Videos> {
+) -> RequestBuilder<PaginationContainer<Video>, ApiError, Videos> {
     let url = client.inner.api_base_uri().to_owned() + &String::from("/videos");
     let mut b = RequestBuilder::new(client.inner, url, Method::GET);
 

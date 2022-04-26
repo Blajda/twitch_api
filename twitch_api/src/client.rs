@@ -8,6 +8,7 @@ use std::task::Poll;
 
 use crate::error::Error;
 use crate::helix::limiter::BucketLimiter;
+use crate::helix::models::ApiError;
 use crate::helix::models::Credentials;
 use crate::namespace::auth::client_credentials;
 use hyper::body::Body;
@@ -48,9 +49,9 @@ pub struct DefaultOpts {}
 
 /// Endpoint supports multiple pages of results.
 /// Can move backwards given the current cursor
-pub trait BidirectionalPagination<T> {
-    fn next(&self) -> Option<IterableApiRequest<T>>;
-    fn prev(&self) -> Option<IterableApiRequest<T>>;
+pub trait BidirectionalPagination<T, E> {
+    fn next(&self) -> Option<IterableApiRequest<T, E>>;
+    fn prev(&self) -> Option<IterableApiRequest<T, E>>;
 }
 
 /// Internal use only. Used to set attributes for bidirectional pagination
@@ -520,26 +521,28 @@ impl RequestRef {
 }
 
 #[derive(Debug, Clone)]
-pub struct ApiRequest<T> {
+pub struct ApiRequest<T, E> {
     inner: Arc<RequestRef>,
     max_attempts: u32,
     pagination: Option<String>,
     forward: bool,
     _marker: PhantomData<T>,
+    _error_type: PhantomData<E>,
 }
 
-pub struct RequestBuilder<T, Opts = DefaultOpts> {
+pub struct RequestBuilder<T, E = ApiError, Opts = DefaultOpts> {
     url: String,
     params: Vec<(String, String)>,
     client: Client,
     method: Method,
     ratelimit: Option<BucketLimiter>,
     ratelimit_cost: u32,
-    _marker: PhantomData<T>,
+    _data_type: PhantomData<T>,
+    _error_type: PhantomData<E>,
     _opts: PhantomData<Opts>,
 }
 
-impl<T, Opt> RequestBuilder<T, Opt> {
+impl<T, E, Opt> RequestBuilder<T, E, Opt> {
     pub fn with_query<S: Into<String> + ?Sized, S2: Into<String> + ?Sized>(
         mut self,
         key: S,
@@ -560,7 +563,12 @@ impl<T, Opt> RequestBuilder<T, Opt> {
     }
 }
 
-impl<T: DeserializeOwned + ForwardPagination + 'static + Send, Opt> RequestBuilder<T, Opt> {
+impl<
+        T: DeserializeOwned + ForwardPagination + 'static + Send,
+        E: DeserializeOwned + 'static + Send,
+        Opt,
+    > RequestBuilder<T, E, Opt>
+{
     pub fn new(client: Client, url: String, method: Method) -> Self {
         RequestBuilder {
             url: url,
@@ -571,12 +579,13 @@ impl<T: DeserializeOwned + ForwardPagination + 'static + Send, Opt> RequestBuild
             client: client,
             ratelimit_cost: 1,
             method: method,
-            _marker: PhantomData,
+            _data_type: PhantomData,
+            _error_type: PhantomData,
             _opts: PhantomData,
         }
     }
 
-    pub fn build(self) -> ApiRequest<T> {
+    pub fn build(self) -> ApiRequest<T, E> {
         ApiRequest::new(
             self.url,
             self.params,
@@ -587,21 +596,25 @@ impl<T: DeserializeOwned + ForwardPagination + 'static + Send, Opt> RequestBuild
     }
 }
 
-impl<T: DeserializeOwned + ForwardPagination + 'static + Send + HelixPagination, Opt>
-    RequestBuilder<T, Opt>
+impl<
+        T: DeserializeOwned + ForwardPagination + 'static + Send + HelixPagination,
+        E: DeserializeOwned + 'static + Send,
+        Opt,
+    > RequestBuilder<T, E, Opt>
 {
-    pub fn build_iterable(self) -> IterableApiRequest<T> {
+    pub fn build_iterable(self) -> IterableApiRequest<T, E> {
         let r = self.build();
         IterableApiRequest::from_request(&r)
     }
 }
 
-impl<T, Opt> IntoFuture for RequestBuilder<T, Opt>
+impl<T, E, Opt> IntoFuture for RequestBuilder<T, E, Opt>
 where
     T: DeserializeOwned + ForwardPagination + 'static + Send,
+    E: DeserializeOwned + 'static + Send,
 {
     type Output = Result<T, Error>;
-    type Future = RequestFuture<T>;
+    type Future = RequestFuture<T, E>;
 
     fn into_future(self) -> Self::Future {
         let request = self.build();
@@ -609,10 +622,11 @@ where
     }
 }
 
-pub struct RequestFuture<T> {
-    request: ApiRequest<T>,
+pub struct RequestFuture<T, E> {
+    request: ApiRequest<T, E>,
     state: FutureState,
     _marker: PhantomData<T>,
+    _error_type: PhantomData<E>,
 }
 
 enum FutureState {
@@ -625,7 +639,7 @@ enum FutureState {
     ),
 }
 
-impl<T> RequestFuture<T> {
+impl<T, E> RequestFuture<T, E> {
     fn build_request_state(&mut self) {
         let request = &self.request;
         let mut query = String::new();
@@ -673,9 +687,10 @@ impl<T> RequestFuture<T> {
     }
 }
 
-impl<T> Future for RequestFuture<T>
+impl<T, E> Future for RequestFuture<T, E>
 where
     T: serde::de::DeserializeOwned,
+    E: serde::de::DeserializeOwned,
 {
     type Output = Result<T, Error>;
 
@@ -714,6 +729,7 @@ where
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(Error::from(e))),
                         Poll::Ready(Ok(res)) => {
                             let (parts, body) = res.into_parts();
+                            println!("{:?}, {:?}", parts, body);
                             this.state =
                                 FutureState::PollBody(parts, Box::pin(hyper::body::to_bytes(body)));
 
@@ -729,14 +745,23 @@ where
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(Error::from(e))),
                         Poll::Ready(Ok(res)) => {
+                            println!("{:?}", std::str::from_utf8(&res));
                             debug!("{:#?}", part);
                             debug!("{:#?}", res);
                             let value = serde_json::from_slice::<T>(res.as_ref());
+                            if let Ok(v) = value {
+                                return Poll::Ready(Ok(v));
+                            }
+                            let value = serde_json::from_slice::<ApiError>(res.as_ref());
+                            if let Ok(v) = value {
+                                return Poll::Ready(Err(Error::from(v)));
+                            }
                             if let Err(e) = value {
                                 return Poll::Ready(Err(Error::from(e)));
                             }
-                            let value = value.unwrap();
-                            return Poll::Ready(Ok(value));
+
+                            let e = value.err().unwrap();
+                            return Poll::Ready(Err(Error::from(e)));
                         }
                     };
                 }
@@ -745,60 +770,69 @@ where
     }
 }
 
-impl<T> IntoFuture for ApiRequest<T>
+impl<T, E> IntoFuture for ApiRequest<T, E>
 where
     T: serde::de::DeserializeOwned,
+    E: serde::de::DeserializeOwned,
 {
     type Output = Result<T, Error>;
-    type Future = RequestFuture<T>;
+    type Future = RequestFuture<T, E>;
 
     fn into_future(self) -> Self::Future {
         RequestFuture {
             request: self,
             state: FutureState::Init,
             _marker: PhantomData,
+            _error_type: PhantomData,
         }
     }
 }
 
-pub struct IterableApiRequest<T> {
+pub struct IterableApiRequest<T, E> {
     inner: Arc<RequestRef>,
     cursor: Option<String>,
     _forward: bool,
     _marker: PhantomData<T>,
+    _error_type: PhantomData<E>,
 }
 
-impl<T> IterableApiRequest<T> {
-    pub fn from_request(request: &ApiRequest<T>) -> IterableApiRequest<T> {
+impl<T, E> IterableApiRequest<T, E> {
+    pub fn from_request(request: &ApiRequest<T, E>) -> IterableApiRequest<T, E> {
         IterableApiRequest {
             inner: request.inner.clone(),
             cursor: None,
             _forward: true,
             _marker: PhantomData,
+            _error_type: PhantomData,
         }
     }
     pub fn from_request2(
         request: Arc<RequestRef>,
         cursor: Option<String>,
         forward: bool,
-    ) -> IterableApiRequest<T> {
+    ) -> IterableApiRequest<T, E> {
         IterableApiRequest {
             inner: request,
             cursor: cursor,
             _forward: forward,
             _marker: PhantomData,
+            _error_type: PhantomData,
         }
     }
 }
 
-impl<T: DeserializeOwned + ForwardPagination + 'static + Send> ApiRequest<T> {
+impl<
+        T: DeserializeOwned + ForwardPagination + 'static + Send,
+        E: DeserializeOwned + 'static + Send,
+    > ApiRequest<T, E>
+{
     pub fn new(
         url: String,
         params: Vec<(String, String)>,
         client: Client,
         method: Method,
         ratelimit: Option<BucketLimiter>,
-    ) -> ApiRequest<T> {
+    ) -> ApiRequest<T, E> {
         let max_attempts = client.config().max_retrys;
         ApiRequest {
             inner: Arc::new(RequestRef::new(url, params, client, method, ratelimit)),
@@ -806,18 +840,23 @@ impl<T: DeserializeOwned + ForwardPagination + 'static + Send> ApiRequest<T> {
             pagination: None,
             forward: true,
             _marker: PhantomData,
+            _error_type: PhantomData,
         }
     }
 }
 
-impl<T: DeserializeOwned + ForwardPagination + 'static + Send> IterableApiRequest<T> {
+impl<
+        T: DeserializeOwned + ForwardPagination + 'static + Send,
+        E: DeserializeOwned + ForwardPagination + 'static + Send,
+    > IterableApiRequest<T, E>
+{
     pub fn new(
         url: String,
         params: Vec<(String, String)>,
         client: Client,
         method: Method,
         ratelimit: Option<BucketLimiter>,
-    ) -> IterableApiRequest<T> {
+    ) -> IterableApiRequest<T, E> {
         let request_ref = Arc::new(RequestRef::new(url, params, client, method, ratelimit));
 
         IterableApiRequest {
@@ -825,26 +864,28 @@ impl<T: DeserializeOwned + ForwardPagination + 'static + Send> IterableApiReques
             cursor: None,
             _forward: true,
             _marker: PhantomData,
+            _error_type: PhantomData,
         }
     }
 }
 
-pub struct IterableRequestFuture<T> {
+pub struct IterableRequestFuture<T, E> {
     request: Arc<RequestRef>,
-    state: IterableApiRequestState<T>,
+    state: IterableApiRequestState<T, E>,
     _marker: PhantomData<T>,
 }
 
-enum IterableApiRequestState<T> {
-    PollInner(Pin<Box<RequestFuture<T>>>),
+enum IterableApiRequestState<T, E> {
+    PollInner(Pin<Box<RequestFuture<T, E>>>),
 }
 
-impl<T> IntoFuture for IterableApiRequest<T>
+impl<T, E> IntoFuture for IterableApiRequest<T, E>
 where
     T: serde::de::DeserializeOwned + PaginationContrainerTrait,
+    E: serde::de::DeserializeOwned,
 {
     type Output = Result<T, Error>;
-    type Future = IterableRequestFuture<T>;
+    type Future = IterableRequestFuture<T, E>;
 
     fn into_future(self) -> Self::Future {
         let r = self.inner;
@@ -855,6 +896,7 @@ where
             pagination: self.cursor,
             forward: true,
             _marker: PhantomData,
+            _error_type: PhantomData,
         };
 
         IterableRequestFuture {
@@ -865,9 +907,10 @@ where
     }
 }
 
-impl<T> Future for IterableRequestFuture<T>
+impl<T, E> Future for IterableRequestFuture<T, E>
 where
     T: serde::de::DeserializeOwned + PaginationContrainerTrait,
+    E: serde::de::DeserializeOwned,
 {
     type Output = Result<T, Error>;
 

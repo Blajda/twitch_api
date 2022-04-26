@@ -1,5 +1,5 @@
+use crate::client::ClientTrait;
 use crate::client::{Client, RequestBuilder};
-use crate::client::{ClientTrait, DefaultOpts};
 use crate::helix::models::Credentials;
 use hyper::Method;
 use std::marker::PhantomData;

@@ -1,13 +1,16 @@
 use crate::client::{DefaultOpts, RequestBuilder};
 
-use super::models::{Credentials, ApiError};
+use super::models::{ApiError, Credentials};
 use super::*;
 
 pub struct Auth {}
 type AuthNamespace = Namespace<Auth>;
 
 impl AuthNamespace {
-    pub fn client_credentials(self, secret: &str) -> RequestBuilder<Credentials, ApiError, DefaultOpts> {
+    pub fn client_credentials(
+        self,
+        secret: &str,
+    ) -> RequestBuilder<Credentials, ApiError, DefaultOpts> {
         client_credentials(self.client, secret)
     }
 }

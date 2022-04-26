@@ -1,7 +1,6 @@
 extern crate serde_json;
 
-use crate::client::ForwardPagination;
-use crate::client::Scope;
+use crate::client::{ForwardPagination, HelixScope};
 
 impl ForwardPagination for Credentials {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
@@ -20,7 +19,7 @@ pub struct Credentials {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub expires_in: u32,
-    pub scope: Option<Vec<Scope>>,
+    pub scope: Option<Vec<HelixScope>>,
     pub token_type: String,
 }
 

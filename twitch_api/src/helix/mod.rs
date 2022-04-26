@@ -1,8 +1,8 @@
 use crate::client::Client as GenericClient;
+use crate::client::ClientConfig;
 use crate::client::ClientTrait;
-use crate::client::{ClientConfig, Version};
 
-use crate::client::{HelixScope, Scope};
+use crate::client::HelixScope;
 
 pub mod limiter;
 pub mod models;
@@ -17,13 +17,13 @@ impl Client {
     pub fn new(id: &str) -> Client {
         let config = ClientConfig::default();
         Client {
-            inner: GenericClient::new(id, config, Version::Helix),
+            inner: GenericClient::new(id, config),
         }
     }
 
     pub fn new_with_config<S: Into<String>>(id: S, config: ClientConfig) -> Client {
         Client {
-            inner: GenericClient::new(id, config, Version::Helix),
+            inner: GenericClient::new(id, config),
         }
     }
 
@@ -44,18 +44,8 @@ impl Client {
         self.inner.authenticated()
     }
 
-    pub fn scopes(&self) -> Vec<HelixScope> {
-        self.inner
-            .scopes()
-            .into_iter()
-            .filter_map(|item| {
-                if let Scope::Helix(scope) = item {
-                    Some(scope)
-                } else {
-                    None
-                }
-            })
-            .collect()
+    pub fn scopes(&self) -> &[HelixScope] {
+        self.inner.scopes()
     }
 }
 
@@ -80,15 +70,13 @@ impl AuthClientBuilder {
 
     pub fn scope(self, scope: HelixScope) -> AuthClientBuilder {
         AuthClientBuilder {
-            inner: self.inner.scope(Scope::Helix(scope)),
+            inner: self.inner.scope(scope),
         }
     }
 
     pub fn scopes(self, scopes: Vec<HelixScope>) -> AuthClientBuilder {
         AuthClientBuilder {
-            inner: self
-                .inner
-                .scopes(scopes.into_iter().map(|e| Scope::Helix(e)).collect()),
+            inner: self.inner.scopes(scopes.into_iter().map(|e| e).collect()),
         }
     }
 

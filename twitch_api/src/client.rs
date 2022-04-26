@@ -79,33 +79,6 @@ impl fmt::Display for ScopeParseError {
     }
 }
 
-/*TODO*/
-#[derive(PartialEq, Hash, Eq, Clone, Debug)]
-pub enum Scope {
-    Helix(HelixScope),
-}
-
-impl TryFrom<&str> for Scope {
-    type Error = ScopeParseError;
-    fn try_from(s: &str) -> Result<Scope, Self::Error> {
-        if let Ok(scope) = HelixScope::try_from(s) {
-            return Ok(Scope::Helix(scope));
-        }
-        Err(ScopeParseError {})
-    }
-}
-use serde::{Deserialize, Deserializer};
-
-impl<'de> Deserialize<'de> for Scope {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let id = String::deserialize(deserializer)?;
-        Scope::try_from(&id[0..]).map_err(serde::de::Error::custom)
-    }
-}
-
 #[derive(PartialEq, Hash, Eq, Clone, Debug)]
 pub enum HelixScope {
     AnalyticsReadExtensions,
@@ -136,6 +109,18 @@ impl HelixScope {
     }
 }
 
+use serde::{Deserialize, Deserializer};
+
+impl<'de> Deserialize<'de> for HelixScope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let id = String::deserialize(deserializer)?;
+        HelixScope::try_from(&id[0..]).map_err(serde::de::Error::custom)
+    }
+}
+
 impl TryFrom<&str> for HelixScope {
     type Error = ScopeParseError;
     fn try_from(s: &str) -> Result<HelixScope, Self::Error> {
@@ -153,11 +138,6 @@ impl TryFrom<&str> for HelixScope {
             _ => return Err(ScopeParseError {}),
         })
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum Version {
-    Helix,
 }
 
 impl Client {
@@ -233,7 +213,6 @@ impl Default for ClientConfig {
 pub struct UnauthClient {
     id: String,
     config: ClientConfig,
-    version: Version,
 }
 
 #[derive(Debug)]
@@ -241,7 +220,7 @@ pub struct AuthClient {
     credentials: Credentials,
     secret: String,
     previous: Client,
-    scopes: Vec<Scope>,
+    scopes: Vec<HelixScope>,
 }
 
 pub trait ClientTrait {
@@ -252,7 +231,7 @@ pub trait ClientTrait {
     fn ratelimit<'a>(&'a self, key: RatelimitKey) -> Option<&'a BucketLimiter>;
 
     fn authenticated(&self) -> bool;
-    fn scopes(&self) -> Vec<Scope>;
+    fn scopes(&self) -> &[HelixScope];
 }
 
 impl ClientTrait for UnauthClient {
@@ -280,8 +259,8 @@ impl ClientTrait for UnauthClient {
         &self.config
     }
 
-    fn scopes(&self) -> Vec<Scope> {
-        Vec::with_capacity(0)
+    fn scopes(&self) -> &[HelixScope] {
+        &[]
     }
 }
 
@@ -334,7 +313,7 @@ impl ClientTrait for Client {
         }
     }
 
-    fn scopes(&self) -> Vec<Scope> {
+    fn scopes(&self) -> &[HelixScope] {
         use self::ClientType::*;
         match self.inner.as_ref() {
             Unauth(inner) => inner.scopes(),
@@ -383,23 +362,17 @@ impl ClientTrait for AuthClient {
         true
     }
 
-    fn scopes(&self) -> Vec<Scope> {
-        self.scopes.clone()
+    fn scopes(&self) -> &[HelixScope] {
+        &self.scopes
     }
 }
 
-struct AuthStateRef {
-    token: Option<String>,
-    scopes: Vec<Scope>,
-}
-
 impl Client {
-    pub fn new<S: Into<String>>(id: S, config: ClientConfig, version: Version) -> Client {
+    pub fn new<S: Into<String>>(id: S, config: ClientConfig) -> Client {
         Client {
             inner: Arc::new(ClientType::Unauth(UnauthClient {
                 id: id.into(),
                 config: config,
-                version: version,
             })),
         }
     }
@@ -409,14 +382,6 @@ impl Client {
         match self.inner.as_ref() {
             Unauth(_) => None,
             Auth(inner) => Some(&inner.secret),
-        }
-    }
-
-    fn version(&self) -> Version {
-        use self::ClientType::*;
-        match self.inner.as_ref() {
-            Unauth(inner) => inner.version.clone(),
-            Auth(inner) => inner.previous.version(),
         }
     }
 
@@ -436,7 +401,7 @@ impl Client {
 }
 
 pub struct AuthClientBuilder {
-    scopes: HashSet<Scope>,
+    scopes: HashSet<HelixScope>,
     secret: String,
     token: Option<String>,
     client: Client,
@@ -473,13 +438,13 @@ impl AuthClientBuilder {
         })
     }
 
-    pub fn scope(mut self, scope: Scope) -> AuthClientBuilder {
+    pub fn scope(mut self, scope: HelixScope) -> AuthClientBuilder {
         let scopes = &mut self.scopes;
         scopes.insert(scope);
         self
     }
 
-    pub fn scopes(mut self, scopes: Vec<Scope>) -> AuthClientBuilder {
+    pub fn scopes(mut self, scopes: Vec<HelixScope>) -> AuthClientBuilder {
         let _scopes = &mut self.scopes;
         for scope in scopes {
             _scopes.insert(scope);
@@ -729,7 +694,6 @@ where
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(Error::from(e))),
                         Poll::Ready(Ok(res)) => {
                             let (parts, body) = res.into_parts();
-                            println!("{:?}, {:?}", parts, body);
                             this.state =
                                 FutureState::PollBody(parts, Box::pin(hyper::body::to_bytes(body)));
 
@@ -745,7 +709,6 @@ where
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(e)) => return Poll::Ready(Err(Error::from(e))),
                         Poll::Ready(Ok(res)) => {
-                            println!("{:?}", std::str::from_utf8(&res));
                             debug!("{:#?}", part);
                             debug!("{:#?}", res);
                             let value = serde_json::from_slice::<T>(res.as_ref());

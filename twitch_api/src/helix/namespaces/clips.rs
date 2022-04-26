@@ -1,4 +1,4 @@
-use super::models::{Clip, DataContainer, ApiError};
+use super::models::{ApiError, Clip, DataContainer};
 use super::*;
 use crate::client::{DefaultOpts, RequestBuilder};
 use twitch_types::{BroadcasterId, GameId, UserId};
@@ -68,7 +68,9 @@ impl Client {
     }
 }
 
-fn init_clips_request_builder(client: Client) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
+fn init_clips_request_builder(
+    client: Client,
+) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
     let url = client.inner.api_base_uri().to_string() + "clips";
     let b = RequestBuilder::new(client.inner, url, Method::GET);
 

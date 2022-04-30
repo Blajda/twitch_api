@@ -1,4 +1,4 @@
-use super::models::{ApiError, Clip, DataContainer};
+use super::models::{ApiError, Clip, DataContainer, PaginationContainer};
 use super::*;
 use crate::client::{DefaultOpts, RequestBuilder};
 use twitch_types::{BroadcasterId, GameId, UserId};
@@ -6,7 +6,7 @@ use twitch_types::{BroadcasterId, GameId, UserId};
 pub struct Clips {}
 type ClipsNamespace = Namespace<Clips>;
 
-impl<T> RequestBuilder<T, Clips> {
+impl<T> RequestBuilder<T, ApiError, Clips> {
     ///Ending date/time for returned clips, in RFC3339 format. (Note that the
     ///seconds value is ignored.) If this is specified, started_at also must be
     ///specified; otherwise, the time period is ignored.
@@ -20,6 +20,11 @@ impl<T> RequestBuilder<T, Clips> {
     ///started_at value.
     pub fn started_at<S: Into<String>>(self, start: S) -> Self {
         self.with_query("started_at", start)
+    }
+
+
+    pub fn first(self, first: u32) -> Self {
+        self.with_query("first", first.to_string())
     }
 }
 
@@ -44,7 +49,7 @@ impl ClipsNamespace {
     pub fn by_broadcaster<'a, Id: Into<BroadcasterId<'a>>>(
         self,
         id: Id,
-    ) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
+    ) -> RequestBuilder<PaginationContainer<Clip>, ApiError, Clips> {
         by_broadcaster(self.client, id)
     }
 
@@ -71,7 +76,7 @@ impl Client {
 fn init_clips_request_builder(
     client: Client,
 ) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
-    let url = client.inner.api_base_uri().to_string() + "clips";
+    let url = client.inner.api_base_uri().to_string() + "/clips";
     let b = RequestBuilder::new(client.inner, url, Method::GET);
 
     return b;
@@ -99,8 +104,9 @@ pub fn by_game<'a, Id: Into<GameId<'a>>>(
 pub fn by_broadcaster<'a, Id: Into<UserId<'a>>>(
     client: Client,
     id: Id,
-) -> RequestBuilder<DataContainer<Clip>, ApiError, Clips> {
-    let mut b = init_clips_request_builder(client);
+) -> RequestBuilder<PaginationContainer<Clip>, ApiError, Clips> {
+    let url = client.inner.api_base_uri().to_string() + "/clips";
+    let mut b = RequestBuilder::new(client.inner, url, Method::GET);
     b = b.with_query("broadcaster_id", id.into());
     b
 }

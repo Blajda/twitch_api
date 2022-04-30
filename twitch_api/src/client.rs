@@ -579,9 +579,9 @@ where
     E: DeserializeOwned + 'static + Send,
 {
     type Output = Result<T, Error>;
-    type Future = RequestFuture<T, E>;
+    type IntoFuture = RequestFuture<T, E>;
 
-    fn into_future(self) -> Self::Future {
+    fn into_future(self) -> Self::IntoFuture {
         let request = self.build();
         return request.into_future();
     }
@@ -739,9 +739,9 @@ where
     E: serde::de::DeserializeOwned,
 {
     type Output = Result<T, Error>;
-    type Future = RequestFuture<T, E>;
+    type IntoFuture = RequestFuture<T, E>;
 
-    fn into_future(self) -> Self::Future {
+    fn into_future(self) -> Self::IntoFuture {
         RequestFuture {
             request: self,
             state: FutureState::Init,
@@ -848,9 +848,9 @@ where
     E: serde::de::DeserializeOwned,
 {
     type Output = Result<T, Error>;
-    type Future = IterableRequestFuture<T, E>;
+    type IntoFuture = IterableRequestFuture<T, E>;
 
-    fn into_future(self) -> Self::Future {
+    fn into_future(self) -> Self::IntoFuture {
         let r = self.inner;
 
         let r = ApiRequest {

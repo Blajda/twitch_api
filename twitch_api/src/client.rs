@@ -587,7 +587,11 @@ where
     }
 }
 
-pub struct RequestFuture<T, E> {
+pub struct RequestFuture<T, E>
+where
+    E: Send,
+    T: Send,
+{
     request: ApiRequest<T, E>,
     state: FutureState,
     _marker: PhantomData<T>,
@@ -596,15 +600,15 @@ pub struct RequestFuture<T, E> {
 
 enum FutureState {
     Init,
-    PollRateLimit(Pin<Box<dyn Future<Output = Result<(), Error>>>>),
-    PollRequest(Pin<Box<dyn Future<Output = Result<Response<Body>, HyperError>>>>),
+    PollRateLimit(Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>),
+    PollRequest(Pin<Box<dyn Future<Output = Result<Response<Body>, HyperError>> + Send>>),
     PollBody(
         Parts,
-        Pin<Box<dyn Future<Output = Result<Bytes, HyperError>>>>,
+        Pin<Box<dyn Future<Output = Result<Bytes, HyperError>> + Send>>,
     ),
 }
 
-impl<T, E> RequestFuture<T, E> {
+impl<T: Send, E: Send> RequestFuture<T, E> {
     fn build_request_state(&mut self) {
         let request = &self.request;
         let mut query = String::new();
@@ -654,8 +658,8 @@ impl<T, E> RequestFuture<T, E> {
 
 impl<T, E> Future for RequestFuture<T, E>
 where
-    T: serde::de::DeserializeOwned,
-    E: serde::de::DeserializeOwned,
+    T: serde::de::DeserializeOwned + Send,
+    E: serde::de::DeserializeOwned + Send,
 {
     type Output = Result<T, Error>;
 
@@ -735,8 +739,8 @@ where
 
 impl<T, E> IntoFuture for ApiRequest<T, E>
 where
-    T: serde::de::DeserializeOwned,
-    E: serde::de::DeserializeOwned,
+    T: serde::de::DeserializeOwned + Send,
+    E: serde::de::DeserializeOwned + Send,
 {
     type Output = Result<T, Error>;
     type IntoFuture = RequestFuture<T, E>;
@@ -832,20 +836,20 @@ impl<
     }
 }
 
-pub struct IterableRequestFuture<T, E> {
+pub struct IterableRequestFuture<T: Send, E: Send> {
     request: Arc<RequestRef>,
     state: IterableApiRequestState<T, E>,
     _marker: PhantomData<T>,
 }
 
-enum IterableApiRequestState<T, E> {
+enum IterableApiRequestState<T: Send, E: Send> {
     PollInner(Pin<Box<RequestFuture<T, E>>>),
 }
 
 impl<T, E> IntoFuture for IterableApiRequest<T, E>
 where
-    T: serde::de::DeserializeOwned + PaginationContrainerTrait,
-    E: serde::de::DeserializeOwned,
+    T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send,
+    E: serde::de::DeserializeOwned + Send,
 {
     type Output = Result<T, Error>;
     type IntoFuture = IterableRequestFuture<T, E>;
@@ -872,8 +876,8 @@ where
 
 impl<T, E> Future for IterableRequestFuture<T, E>
 where
-    T: serde::de::DeserializeOwned + PaginationContrainerTrait,
-    E: serde::de::DeserializeOwned,
+    T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send,
+    E: serde::de::DeserializeOwned + Send,
 {
     type Output = Result<T, Error>;
 

@@ -175,7 +175,7 @@ impl Default for RatelimitMap {
         limits.insert(
             RatelimitKey::Default,
             BucketLimiter::new(
-                30,
+                800,
                 &"ratelimit-limit",
                 &"ratelimit-remaining",
                 &"ratelimit-reset",

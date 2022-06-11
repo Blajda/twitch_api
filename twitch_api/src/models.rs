@@ -1,6 +1,9 @@
 extern crate serde_json;
 
-use crate::{client::{ForwardPagination, HelixScope}, helix::models::ApiError};
+use crate::{
+    client::{ForwardPagination, HelixScope},
+    helix::models::ApiError,
+};
 
 impl ForwardPagination for Credentials {
     fn cursor<'a>(&'a self) -> Option<&'a str> {
@@ -31,12 +34,11 @@ pub struct Message {
 }
 
 impl From<ApiError> for Message {
-
     fn from(other: ApiError) -> Self {
         Message {
             error: Some(other.error),
             message: other.message,
-            status: other.status
+            status: other.status,
         }
     }
 }

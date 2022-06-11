@@ -4,7 +4,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use std::future::IntoFuture;
-use std::task::Poll;
 
 use crate::error::Error;
 use crate::helix::limiter::BucketLimiter;
@@ -12,12 +11,9 @@ use crate::helix::models::ApiError;
 use crate::helix::models::Credentials;
 use crate::namespace::auth::client_credentials;
 use hyper::body::Body;
-use hyper::body::Bytes;
 use hyper::client::{Client as HyperClient, HttpConnector};
-use hyper::http::response::Parts;
 use hyper::Method;
 use hyper::Request;
-use hyper::{Error as HyperError, Response};
 use hyper_tls::HttpsConnector;
 
 use futures::Future;
@@ -573,7 +569,7 @@ impl<
     }
 }
 
-fn build_request<T, E>(request: &ApiRequest<T,E>) -> Request<Body> {
+fn build_request<T, E>(request: &ApiRequest<T, E>) -> Request<Body> {
     let mut query = String::new();
     let mut uri = request.inner.url.clone();
 
@@ -623,28 +619,37 @@ async fn perform_api_request<
 >(
     request: ApiRequest<T, E>,
 ) -> Result<T, Error> {
-    if let Some(limiter) = &request.inner.ratelimit {
-        limiter.queue(1).await?;
+    let mut attempts = 0;
+    loop {
+        if let Some(limiter) = &request.inner.ratelimit {
+            limiter.queue(1).await?;
+        }
+        let r = build_request(&request);
+        let res = request.inner.client.config().hyper.request(r).await?;
+        let (parts, body) = res.into_parts();
+        let body = hyper::body::to_bytes(body).await?;
+        trace!("{:#?}", parts);
+        trace!("{:#?}", body);
+
+        let value = serde_json::from_slice::<T>(body.as_ref());
+        if let Ok(v) = value {
+            return Ok(v);
+        }
+
+        let value = serde_json::from_slice::<ApiError>(body.as_ref());
+        let res = match value {
+            Ok(v) => Err(v.into()),
+            Err(e) => Err(e.into()),
+        };
+
+        //TODO: This explicitly check for rate limit errors
+        if attempts < request.max_attempts {
+            attempts += 1;
+            continue;
+        }
+
+        return res;
     }
-    let r = build_request(&request);
-    let res = request.inner.client.config().hyper.request(r).await?;
-    let (parts, body) = res.into_parts();
-    let body = hyper::body::to_bytes(body).await?;
-    trace!("{:#?}", parts);
-    trace!("{:#?}", body);
-
-    let value = serde_json::from_slice::<T>(body.as_ref());
-    if let Ok(v) = value {
-        return Ok(v);
-    }
-
-    let value = serde_json::from_slice::<ApiError>(body.as_ref());
-    let res = match value {
-        Ok(v) => Err(v.into()),
-        Err(e) => Err(e.into()),
-    };
-
-    return res;
 }
 
 impl<T, E, Opt> IntoFuture for RequestBuilder<T, E, Opt>
@@ -742,14 +747,8 @@ impl<
     }
 }
 
-pub struct IterableRequestFuture<T: Send, E: Send> {
-    request: Arc<RequestRef>,
-    _marker: PhantomData<T>,
-    _error: PhantomData<E>,
-}
-
 async fn perform_iterable_request<T, E>(request: ApiRequest<T, E>) -> Result<T, Error>
-where 
+where
     T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send,
     E: serde::de::DeserializeOwned + Send,
 {

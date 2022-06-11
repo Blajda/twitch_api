@@ -1,8 +1,8 @@
 mod common;
 
+use serial_test::serial;
 use std::error::Error;
 use twitch_api::HelixClient;
-use serial_test::serial;
 
 #[tokio::test]
 #[serial]

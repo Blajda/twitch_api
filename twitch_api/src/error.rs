@@ -113,7 +113,7 @@ impl From<ApiError> for Error {
     fn from(err: ApiError) -> Error {
         if err.status == 400 {
             return Error {
-                inner: Kind::AuthError(Some(err.into()))
+                inner: Kind::AuthError(Some(err.into())),
             };
         }
 

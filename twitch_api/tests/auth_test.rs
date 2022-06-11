@@ -2,8 +2,10 @@ mod common;
 
 use std::error::Error;
 use twitch_api::HelixClient;
+use serial_test::serial;
 
 #[tokio::test]
+#[serial]
 async fn test_helix_auth_ok() -> Result<(), Box<dyn Error>> {
     let context = common::setup()?;
 
@@ -17,11 +19,12 @@ async fn test_helix_auth_ok() -> Result<(), Box<dyn Error>> {
         .build()
         .await;
 
-    assert_eq!(helix_client.is_ok(), true);
+    assert!(helix_client.is_ok());
     Ok(())
 }
 
 #[tokio::test]
+#[serial]
 async fn test_helix_auth_failure() -> Result<(), Box<dyn Error>> {
     let context = common::setup()?;
 

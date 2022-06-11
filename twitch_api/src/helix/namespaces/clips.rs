@@ -22,7 +22,6 @@ impl<T> RequestBuilder<T, ApiError, Clips> {
         self.with_query("started_at", start)
     }
 
-
     pub fn first(self, first: u32) -> Self {
         self.with_query("first", first.to_string())
     }

@@ -573,185 +573,91 @@ impl<
     }
 }
 
+fn build_request<T, E>(request: &ApiRequest<T,E>) -> Request<Body> {
+    let mut query = String::new();
+    let mut uri = request.inner.url.clone();
+
+    for (key, value) in &request.inner.params {
+        if !query.is_empty() {
+            query += "&";
+        }
+        query = query + key + "=" + value;
+    }
+
+    //Add Pagination
+    if let Some(page) = &request.pagination {
+        let mut key = "after";
+        if !query.is_empty() {
+            query += "&";
+        }
+        if !request.forward {
+            key = "before"
+        }
+        query = query + key + "=" + page;
+    }
+
+    if !query.is_empty() {
+        uri = uri + "?" + &query;
+    }
+
+    let mut builder = Request::builder()
+        .method(request.inner.method.clone())
+        .header("Client-Id", request.inner.client.id())
+        .uri(uri);
+
+    if let ClientType::Auth(c) = request.inner.client.inner.as_ref() {
+        builder = builder.header(
+            "Authorization",
+            "Bearer ".to_owned() + &c.credentials.access_token,
+        );
+    }
+
+    let req = builder.body(Body::empty()).unwrap();
+    debug!("{:?}", req);
+    return req;
+}
+
+async fn perform_api_request<
+    T: serde::de::DeserializeOwned + Send,
+    E: serde::de::DeserializeOwned + Send,
+>(
+    request: ApiRequest<T, E>,
+) -> Result<T, Error> {
+    if let Some(limiter) = &request.inner.ratelimit {
+        limiter.queue(1).await?;
+    }
+    let r = build_request(&request);
+    let res = request.inner.client.config().hyper.request(r).await?;
+    let (parts, body) = res.into_parts();
+    let body = hyper::body::to_bytes(body).await?;
+    trace!("{:#?}", parts);
+    trace!("{:#?}", body);
+
+    let value = serde_json::from_slice::<T>(body.as_ref());
+    if let Ok(v) = value {
+        return Ok(v);
+    }
+
+    let value = serde_json::from_slice::<ApiError>(body.as_ref());
+    let res = match value {
+        Ok(v) => Err(v.into()),
+        Err(e) => Err(e.into()),
+    };
+
+    return res;
+}
+
 impl<T, E, Opt> IntoFuture for RequestBuilder<T, E, Opt>
 where
     T: DeserializeOwned + ForwardPagination + 'static + Send,
     E: DeserializeOwned + 'static + Send,
 {
     type Output = Result<T, Error>;
-    type IntoFuture = RequestFuture<T, E>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output>>>;
 
     fn into_future(self) -> Self::IntoFuture {
         let request = self.build();
-        return request.into_future();
-    }
-}
-
-pub struct RequestFuture<T, E>
-where
-    E: Send,
-    T: Send,
-{
-    request: ApiRequest<T, E>,
-    state: FutureState,
-    _marker: PhantomData<T>,
-    _error_type: PhantomData<E>,
-}
-
-enum FutureState {
-    Init,
-    PollRateLimit(Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>),
-    PollRequest(Pin<Box<dyn Future<Output = Result<Response<Body>, HyperError>> + Send>>),
-    PollBody(
-        Parts,
-        Pin<Box<dyn Future<Output = Result<Bytes, HyperError>> + Send>>,
-    ),
-}
-
-impl<T: Send, E: Send> RequestFuture<T, E> {
-    fn build_request_state(&mut self) {
-        let request = &self.request;
-        let mut query = String::new();
-        let mut uri = request.inner.url.clone();
-
-        for (key, value) in &request.inner.params {
-            if !query.is_empty() {
-                query += "&";
-            }
-            query = query + key + "=" + value;
-        }
-
-        //Add Pagination
-        if let Some(page) = &request.pagination {
-            let mut key = "after";
-            if !query.is_empty() {
-                query += "&";
-            }
-            if !request.forward {
-                key = "before"
-            }
-            query = query + key + "=" + page;
-        }
-
-        if !query.is_empty() {
-            uri = uri + "?" + &query;
-        }
-
-        let mut builder = Request::builder()
-            .method(request.inner.method.clone())
-            .header("Client-Id", request.inner.client.id())
-            .uri(uri);
-
-        if let ClientType::Auth(c) = request.inner.client.inner.as_ref() {
-            builder = builder.header(
-                "Authorization",
-                "Bearer ".to_owned() + &c.credentials.access_token,
-            );
-        }
-
-        let req = builder.body(Body::empty()).unwrap();
-        debug!("{:?}", req);
-        let f = request.inner.client.config().hyper.request(req);
-        self.state = FutureState::PollRequest(Box::pin(f));
-    }
-}
-
-impl<T, E> Future for RequestFuture<T, E>
-where
-    T: serde::de::DeserializeOwned + Send,
-    E: serde::de::DeserializeOwned + Send,
-{
-    type Output = Result<T, Error>;
-
-    fn poll(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        let this = unsafe { self.get_unchecked_mut() };
-
-        loop {
-            match &mut this.state {
-                FutureState::Init => match &this.request.inner.ratelimit {
-                    Some(limit) => {
-                        let l = limit.clone();
-                        this.state = FutureState::PollRateLimit(Box::pin(l.queue(1)));
-                    }
-                    None => {
-                        this.build_request_state();
-                    }
-                },
-                FutureState::PollRateLimit(ratelimit) => {
-                    let poll = ratelimit.as_mut().poll(cx);
-                    match poll {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                        Poll::Ready(Ok(_)) => {
-                            this.build_request_state();
-                        }
-                    }
-                }
-                FutureState::PollRequest(req) => {
-                    let poll = req.as_mut().poll(cx);
-
-                    match poll {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(Error::from(e))),
-                        Poll::Ready(Ok(res)) => {
-                            let (parts, body) = res.into_parts();
-                            this.state =
-                                FutureState::PollBody(parts, Box::pin(hyper::body::to_bytes(body)));
-
-                            //TODO: Update Rate limits
-                            continue;
-                        }
-                    };
-                }
-                FutureState::PollBody(part, body) => {
-                    let poll = body.as_mut().poll(cx);
-
-                    match poll {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(Error::from(e))),
-                        Poll::Ready(Ok(res)) => {
-                            debug!("{:#?}", part);
-                            debug!("{:#?}", res);
-                            let value = serde_json::from_slice::<T>(res.as_ref());
-                            if let Ok(v) = value {
-                                return Poll::Ready(Ok(v));
-                            }
-                            let value = serde_json::from_slice::<ApiError>(res.as_ref());
-                            if let Ok(v) = value {
-                                return Poll::Ready(Err(Error::from(v)));
-                            }
-                            if let Err(e) = value {
-                                return Poll::Ready(Err(Error::from(e)));
-                            }
-
-                            let e = value.err().unwrap();
-                            return Poll::Ready(Err(Error::from(e)));
-                        }
-                    };
-                }
-            }
-        }
-    }
-}
-
-impl<T, E> IntoFuture for ApiRequest<T, E>
-where
-    T: serde::de::DeserializeOwned + Send,
-    E: serde::de::DeserializeOwned + Send,
-{
-    type Output = Result<T, Error>;
-    type IntoFuture = RequestFuture<T, E>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        RequestFuture {
-            request: self,
-            state: FutureState::Init,
-            _marker: PhantomData,
-            _error_type: PhantomData,
-        }
+        return Box::pin(perform_api_request(request));
     }
 }
 
@@ -838,26 +744,34 @@ impl<
 
 pub struct IterableRequestFuture<T: Send, E: Send> {
     request: Arc<RequestRef>,
-    state: IterableApiRequestState<T, E>,
     _marker: PhantomData<T>,
+    _error: PhantomData<E>,
 }
 
-enum IterableApiRequestState<T: Send, E: Send> {
-    PollInner(Pin<Box<RequestFuture<T, E>>>),
+async fn perform_iterable_request<T, E>(request: ApiRequest<T, E>) -> Result<T, Error>
+where 
+    T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send,
+    E: serde::de::DeserializeOwned + Send,
+{
+    let inner = request.inner.clone();
+    let mut res = perform_api_request(request).await?;
+    res.set_base_request(inner);
+    res.set_last_direction(true);
+    Ok(res)
 }
 
 impl<T, E> IntoFuture for IterableApiRequest<T, E>
 where
-    T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send,
-    E: serde::de::DeserializeOwned + Send,
+    T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send + 'static,
+    E: serde::de::DeserializeOwned + Send + 'static,
 {
     type Output = Result<T, Error>;
-    type IntoFuture = IterableRequestFuture<T, E>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output>>>;
 
     fn into_future(self) -> Self::IntoFuture {
         let r = self.inner;
 
-        let r = ApiRequest {
+        let r: ApiRequest<T, E> = ApiRequest {
             inner: r.clone(),
             max_attempts: 1,
             pagination: self.cursor,
@@ -866,36 +780,6 @@ where
             _error_type: PhantomData,
         };
 
-        IterableRequestFuture {
-            request: r.inner.clone(),
-            state: IterableApiRequestState::PollInner(Box::pin(r.into_future())),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T, E> Future for IterableRequestFuture<T, E>
-where
-    T: serde::de::DeserializeOwned + PaginationContrainerTrait + Send,
-    E: serde::de::DeserializeOwned + Send,
-{
-    type Output = Result<T, Error>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        let this = unsafe { Pin::get_unchecked_mut(self) };
-        match &mut this.state {
-            IterableApiRequestState::PollInner(inner) => {
-                let r = inner.as_mut().poll(cx);
-                match r {
-                    Poll::Pending => Poll::Pending,
-                    Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-                    Poll::Ready(Ok(mut r)) => {
-                        r.set_base_request(this.request.clone());
-                        r.set_last_direction(true);
-                        Poll::Ready(Ok(r))
-                    }
-                }
-            }
-        }
+        return Box::pin(perform_iterable_request(r));
     }
 }

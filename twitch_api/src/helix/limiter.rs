@@ -1,6 +1,9 @@
 use crate::error::{Error, Kind};
 use hyper::HeaderMap;
-use std::{time::SystemTime, sync::atomic::{AtomicU32, AtomicU64, Ordering, AtomicI32}};
+use std::{
+    sync::atomic::{AtomicI32, AtomicI64, AtomicU64, Ordering},
+    time::SystemTime,
+};
 use std::{
     sync::Arc,
     time::{Duration, UNIX_EPOCH},
@@ -17,7 +20,7 @@ pub struct BucketLimiterInner {
     limit: AtomicI32,
     remaining: AtomicI32,
     inflight: AtomicI32,
-    reset: AtomicU64,
+    reset: AtomicI64,
 }
 
 impl BucketLimiter {
@@ -34,7 +37,12 @@ impl BucketLimiter {
             limit: AtomicI32::new(limit as i32),
             remaining: AtomicI32::new(limit as i32),
             inflight: AtomicI32::new(0),
-            reset: AtomicU64::new(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()),
+            reset: AtomicI64::new(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64,
+            ),
         };
 
         BucketLimiter(Arc::new(bucket))
@@ -52,26 +60,29 @@ impl BucketLimiter {
             });
         }
 
-    loop {
+        loop {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+            let remaining = self.0.reset.load(Ordering::Relaxed) - now;
+            if remaining <= 0 {
+                self.0
+                    .remaining
+                    .store(self.0.limit.load(Ordering::Relaxed), Ordering::Relaxed);
+            }
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let remaining = self.0.reset.load(Ordering::Relaxed) - now;
-        if remaining <= 0 {
-            self.0.remaining.store(self.0.limit.load(Ordering::Relaxed), Ordering::Relaxed);
+            if cost
+                <= self.0.remaining.load(Ordering::Relaxed)
+                    - self.0.inflight.load(Ordering::Relaxed)
+            {
+                self.0.inflight.fetch_add(cost, Ordering::Relaxed);
+                break;
+            }
+
+            let sleep = if remaining > 0 { remaining as u64 } else { 1 };
+            tokio::time::sleep(Duration::from_secs(sleep)).await;
         }
-
-        if cost <= self.0.remaining.load(Ordering::Relaxed) - self.0.inflight.load(Ordering::Relaxed) {
-            self.0.inflight.fetch_add(cost, Ordering::Relaxed);
-            break;
-        }
-
-        let sleep = if remaining > 0 {
-            remaining
-        } else {
-            1
-        };
-        tokio::time::sleep(Duration::from_secs(sleep)).await;
-    }
 
         Ok(())
     }
@@ -98,13 +109,13 @@ impl BucketLimiter {
             .and_then(|x| x.parse::<i32>().ok());
 
         if let Some(remaining) = maybe_remaining {
-            self.0.remaining.swap(remaining,  Ordering::Relaxed);
+            self.0.remaining.swap(remaining, Ordering::Relaxed);
         }
 
         let maybe_reset = headers
             .get(&self.0.reset_header)
             .and_then(|x| x.to_str().ok())
-            .and_then(|x| x.parse::<u64>().ok());
+            .and_then(|x| x.parse::<i64>().ok());
 
         if let Some(reset) = maybe_reset {
             self.0.reset.swap(reset, Ordering::Relaxed);

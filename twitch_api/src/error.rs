@@ -115,6 +115,10 @@ impl From<ApiError> for Error {
             return Error {
                 inner: Kind::AuthError(Some(err.into())),
             };
+        } else if err.status == 429 {
+            return Error {
+                inner: Kind::RatelimitError(Some(err.into())),
+            };
         }
 
         Error {

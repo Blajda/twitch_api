@@ -20,7 +20,6 @@ url = "1.7.2"
 url_serde = "0.2.0"
 futures-timer = "0.1.1"
 twitch_types = { version = "0.0.1", path = "../twitch_types" }
-governor = "0.4.2"
 
 [dev-dependencies]
 serial_test = "0.7.0"

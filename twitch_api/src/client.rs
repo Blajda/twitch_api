@@ -622,11 +622,23 @@ async fn perform_api_request<
     let mut attempts = 0;
     loop {
         if let Some(limiter) = &request.inner.ratelimit {
-            limiter.queue(1).await?;
+            limiter.take(1).await?;
         }
+
         let r = build_request(&request);
-        let res = request.inner.client.config().hyper.request(r).await?;
+        let res = request.inner.client.config().hyper.request(r).await;
+
+        if let Some(limiter) = &request.inner.ratelimit {
+            limiter.restore(1).await?;
+        }
+
+        let res = res?;
         let (parts, body) = res.into_parts();
+
+        if let Some(limiter) = &request.inner.ratelimit {
+            limiter.update_from_headers(&parts.headers);
+        }
+
         let body = hyper::body::to_bytes(body).await?;
         trace!("{:#?}", parts);
         trace!("{:#?}", body);

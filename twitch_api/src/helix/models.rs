@@ -8,7 +8,7 @@ use crate::client::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer};
-use std::sync::Arc;
+use std::{sync::Arc};
 use twitch_types::{BroadcasterId, GameId, StreamId, UserId, VideoId};
 use url::Url;
 
@@ -49,10 +49,10 @@ impl<T> ForwardPagination for PaginationContainer<T> {
 
 impl<T> HelixPagination for PaginationContainer<T> {}
 
-impl<T, E> BidirectionalPagination<PaginationContainer<T>, E> for PaginationContainer<T> {
-    fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>, E>> {
+impl<T> BidirectionalPagination<PaginationContainer<T>, ApiError> for PaginationContainer<T> {
+    fn next(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>, ApiError>> {
         match self.cursor() {
-            Some(cursor) => Some(IterableApiRequest::from_request2(
+            Some(cursor) => Some(IterableApiRequest::from_request_with_cursor(
                 self.base_request.as_ref().unwrap().clone(),
                 Some(cursor.to_owned()),
                 true,
@@ -61,9 +61,9 @@ impl<T, E> BidirectionalPagination<PaginationContainer<T>, E> for PaginationCont
         }
     }
 
-    fn prev(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>, E>> {
+    fn prev(&self) -> Option<super::namespaces::IterableApiRequest<PaginationContainer<T>, ApiError>> {
         match self.cursor() {
-            Some(cursor) => Some(IterableApiRequest::from_request2(
+            Some(cursor) => Some(IterableApiRequest::from_request_with_cursor(
                 self.base_request.as_ref().unwrap().clone(),
                 Some(cursor.to_owned()),
                 false,

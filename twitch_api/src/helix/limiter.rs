@@ -1,7 +1,7 @@
 use crate::error::{Error, Kind};
 use hyper::HeaderMap;
 use std::{
-    sync::atomic::{AtomicI32, AtomicI64, AtomicU64, Ordering},
+    sync::atomic::{AtomicI32, AtomicI64, Ordering},
     time::SystemTime,
 };
 use std::{

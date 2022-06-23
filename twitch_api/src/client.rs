@@ -696,7 +696,7 @@ impl<T, E> IterableApiRequest<T, E> {
             _error_type: PhantomData,
         }
     }
-    pub fn from_request2(
+    pub fn from_request_with_cursor(
         request: Arc<RequestRef>,
         cursor: Option<String>,
         forward: bool,

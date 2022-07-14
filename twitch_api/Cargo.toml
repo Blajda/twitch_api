@@ -23,3 +23,6 @@ twitch_types = { version = "0.0.1", path = "../twitch_types" }
 
 [dev-dependencies]
 serial_test = "0.7.0"
+
+[[example]]
+name = "stream_stats"

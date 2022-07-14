@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v1.4.0
+    - name: Build
+      run: cargo build --verbose
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: Swatinem/rust-cache@v1.4.0
+    - name: Setup mock Twitch Api Server
+      run: |
+        curl -L https://github.com/twitchdev/twitch-cli/releases/download/v1.1.6/twitch-cli_1.1.6_Linux_x86_64.tar.gz -o twitch-cli.tar.gz
+        tar -xf twitch-cli.tar.gz
+        nohup ./twitch-cli_*/twitch mock-api start
+        sleep 10
+    - name: Cargo test
+      run: |
+        cargo test

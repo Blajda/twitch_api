@@ -11,13 +11,12 @@ extern crate twitch_api;
 
 use std::env;
 use std::error::Error;
-use twitch_api::HelixClient;
 use tokio::time::{Duration, Instant};
+use twitch_api::HelixClient;
 
 use twitch_api::client::BidirectionalPagination;
 
 fn report_percentiles(counts: &[u128]) {
-
     let items = counts.len();
     let p999 = counts[items * 999 / 1000];
     let p99 = counts[items * 99 / 100];
@@ -73,7 +72,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     views.sort();
     request_times.sort();
 
-    println!("It took {}s to scrape all streams", scrape_end.checked_duration_since(scrape_start).unwrap().as_secs());
+    println!(
+        "It took {}s to scrape all streams",
+        scrape_end
+            .checked_duration_since(scrape_start)
+            .unwrap()
+            .as_secs()
+    );
     println!("There are {} active streams", views.len());
     println!("These are the percentiles of views");
     report_percentiles(&views);

@@ -2,9 +2,7 @@ use std::error::Error;
 
 use twitch_api::ClientConfig;
 
-use self::{
-    mock_client::MockClient,
-};
+use self::mock_client::MockClient;
 
 pub mod mock_client;
 

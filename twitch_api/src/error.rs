@@ -51,10 +51,6 @@ impl StdError for Error {
             Kind::GeneralApiError(_) => None,
         }
     }
-
-    fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
-        None
-    }
 }
 
 impl Error {

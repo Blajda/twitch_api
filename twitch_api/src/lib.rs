@@ -1,7 +1,4 @@
 #![recursion_limit = "128"]
-#![feature(never_type)]
-#![feature(into_future)]
-#![feature(backtrace)]
 extern crate chrono;
 extern crate serde;
 extern crate serde_json;

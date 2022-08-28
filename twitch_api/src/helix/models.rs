@@ -176,6 +176,8 @@ pub struct Clip {
     #[serde(with = "url_serde")]
     pub thumbnail_url: Url,
     pub view_count: i32,
+    pub duration: f32,
+    pub vod_offset: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -226,4 +228,42 @@ pub struct ApiError {
     pub error: String,
     pub status: u32,
     pub message: String,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_clip_parse() {
+        let data = r#"
+        {
+          "data": [
+            {
+              "id": "RandomClip1",
+              "url": "https://clips.twitch.tv/AwkwardHelplessSalamanderSwiftRage",
+              "embed_url": "https://clips.twitch.tv/embed?clip=RandomClip1",
+              "broadcaster_id": "1234",
+              "broadcaster_name": "JJ",
+              "creator_id": "123456",
+              "creator_name": "MrMarshall",
+              "video_id": "",
+              "game_id": "33103",
+              "language": "en",
+              "title": "random1",
+              "view_count": 10,
+              "created_at": "2017-11-30T22:34:18Z",
+              "thumbnail_url": "https://clips-media-assets.twitch.tv/157589949-preview-480x272.jpg",
+              "duration": 12.9,
+              "vod_offset": 1957
+            }
+          ],
+          "pagination": {
+            "cursor": "eyJiIjpudWxsLCJhIjoiIn0"
+          }
+        }
+        "#;
+
+        let actual: PaginationContainer<Clip> = serde_json::from_str(data).unwrap();
+    }
 }

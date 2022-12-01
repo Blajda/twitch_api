@@ -79,6 +79,13 @@ impl Error {
             _ => false,
         }
     }
+
+    pub fn get_api_error(&self) -> Option<&ApiError> {
+        match &self.inner {
+            Kind::GeneralApiError(err) => Some(err),
+            _ => None,
+        }
+    }
 }
 
 impl From<HyperError> for Error {

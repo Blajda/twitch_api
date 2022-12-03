@@ -125,7 +125,7 @@ pub struct Video {
     pub title: String,
     pub description: String,
     pub created_at: DateTime<Utc>,
-    pub published_at: DateTime<Utc>,
+    pub published_at: Option<DateTime<Utc>>,
     #[serde(with = "url_serde")]
     pub url: Url,
     /*FIXME: Serde will attempt to parse an empty string.
@@ -318,6 +318,8 @@ mod test {
 
     #[test]
     pub fn test_video_parse_null_segment() {
+        // muted_segmnets is null
+        // created_at contains milliseconds
         let data = r#"
         {
             "data": [
@@ -329,7 +331,7 @@ mod test {
                 "user_name": "TwitchDev",
                 "title": "Twitch Developers 101",
                 "description": "Welcome to Twitch development! Here is a quick overview of our products and information to help you get started.",
-                "created_at": "2018-11-14T21:30:18Z",
+                "created_at": "2018-11-14T21:30:18.308226Z",
                 "published_at": "2018-11-14T22:04:30Z",
                 "url": "https://www.twitch.tv/videos/335921245",
                 "thumbnail_url": "https://static-cdn.jtvnw.net/cf_vods/d2nvs31859zcd8/twitchdev/335921245/ce0f3a7f-57a3-4152-bc06-0c6610189fb3/thumb/index-0000000000-%{width}x%{height}.jpg",
@@ -348,5 +350,41 @@ mod test {
         assert_eq!(1, actual.data.len());
         let video = &actual.data[0];
         assert_eq!(0, video.muted_segments.len());
+    }
+
+    #[test]
+    pub fn test_video_parse_null_published() {
+        // muted_segmnets is null
+        // created_at contains milliseconds
+        let data = r#"
+        {
+            "data": [
+              {
+                "id": "335921245",
+                "stream_id": null,
+                "user_id": "141981764",
+                "user_login": "twitchdev",
+                "user_name": "TwitchDev",
+                "title": "Twitch Developers 101",
+                "description": "Welcome to Twitch development! Here is a quick overview of our products and information to help you get started.",
+                "created_at": "2018-11-14T21:30:18.308226Z",
+                "published_at": null,
+                "url": "https://www.twitch.tv/videos/335921245",
+                "thumbnail_url": "https://static-cdn.jtvnw.net/cf_vods/d2nvs31859zcd8/twitchdev/335921245/ce0f3a7f-57a3-4152-bc06-0c6610189fb3/thumb/index-0000000000-%{width}x%{height}.jpg",
+                "viewable": "public",
+                "view_count": 1863062,
+                "language": "en",
+                "type": "upload",
+                "duration": "3m21s",
+                "muted_segments": null
+              }
+            ],
+            "pagination": {}
+        }
+        "#;
+        let actual: PaginationContainer<Video> = serde_json::from_str(data).unwrap();
+        assert_eq!(1, actual.data.len());
+        let video = &actual.data[0];
+        assert_eq!(true, video.published_at.is_none());
     }
 }

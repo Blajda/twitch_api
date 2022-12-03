@@ -643,9 +643,15 @@ async fn perform_api_request<
         trace!("{:#?}", parts);
         trace!("{:#?}", body);
 
-        let value = serde_json::from_slice::<T>(body.as_ref());
-        if let Ok(v) = value {
-            return Ok(v);
+        if parts.status.is_success() {
+            let value = serde_json::from_slice::<T>(body.as_ref());
+            match value {
+                Ok(v) => return Ok(v),
+                Err(e) => {
+                    trace!("{:#?}", e);
+                    return Err(e.into());
+                }
+            }
         }
 
         let value = serde_json::from_slice::<ApiError>(body.as_ref());

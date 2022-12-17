@@ -5,6 +5,7 @@ use serde_json::Error as JsonError;
 use std::convert::From;
 use std::error::Error as StdError;
 use std::fmt::Display;
+use tokio::time::error::Elapsed;
 
 #[derive(Debug)]
 pub(crate) enum Kind {
@@ -15,6 +16,7 @@ pub(crate) enum Kind {
     RatelimitError(Option<Message>),
     RatelimitCostError(String),
     GeneralApiError(ApiError),
+    Timeout(Elapsed),
 }
 
 #[derive(Debug)]
@@ -49,6 +51,7 @@ impl StdError for Error {
             Kind::RatelimitError(_) => None,
             Kind::RatelimitCostError(_) => None,
             Kind::GeneralApiError(_) => None,
+            Kind::Timeout(e) => e.source(),
         }
     }
 }
@@ -109,6 +112,14 @@ impl From<JsonError> for Error {
         Error {
             inner: Kind::Json(err),
         }
+    }
+}
+
+impl From<Elapsed> for Error {
+    fn from(elapse: Elapsed) -> Error {
+        return Error {
+            inner: Kind::Timeout((elapse)),
+        };
     }
 }
 

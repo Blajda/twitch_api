@@ -4,6 +4,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use std::future::IntoFuture;
+use std::time::Duration;
 
 use crate::error::Error;
 use crate::helix::limiter::BucketLimiter;
@@ -163,6 +164,7 @@ pub struct ClientConfig {
     pub auth_base_uri: String,
     pub ratelimits: RatelimitMap,
     pub max_retrys: u32,
+    pub timeout: Duration,
 }
 
 impl Default for RatelimitMap {
@@ -201,6 +203,7 @@ impl Default for ClientConfig {
             auth_base_uri: AUTH_BASE_URI.to_owned(),
             ratelimits,
             max_retrys: 1,
+            timeout: Duration::from_secs(10),
         }
     }
 }
@@ -626,13 +629,15 @@ async fn perform_api_request<
         }
 
         let r = build_request(&request);
-        let res = request.inner.client.config().hyper.request(r).await;
+        let c = &request.inner.client.config();
+        let f = c.hyper.request(r);
+        let res = tokio::time::timeout(c.timeout, f).await;
 
         if let Some(limiter) = &request.inner.ratelimit {
             limiter.restore(1).await?;
         }
 
-        let res = res?;
+        let res = res??;
         let (parts, body) = res.into_parts();
 
         if let Some(limiter) = &request.inner.ratelimit {
